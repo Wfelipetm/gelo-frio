@@ -22,6 +22,7 @@
     "dev": "node server/dev.js",
     "test": "node tests/smoke.js && node tests/printer.js && node tests/backup.js",
     "dist": "electron-builder --win --x64",
+    "baixar": "node scripts/baixar.js",
     "dist:dir": "electron-builder --dir",
     "test:e2e": "node tests/e2e.js",
     "test:e2e:live": "node tests/e2e-live.js",
@@ -76,6 +77,7 @@
       "signAndEditExecutable": false
     },
     "nsis": {
+      "artifactName": "FrioGest-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,

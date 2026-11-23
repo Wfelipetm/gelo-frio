@@ -16,3 +16,4 @@ manual/*.fragmento.html
 # Arquivos soltos (nao versionar)
 GoogleDriveSetup.exe
 Manual-FrioGest.pdf
+FrioGest-Setup-*.exe

@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { createServer } = require('../server');
 const { prepareDemo, seedDemo } = require('../server/demo');
+const { iniciarAtualizador } = require('./updater');
 
 // Versão de demonstração: arquivo electron/demo.flag (criado por scripts/build-demo.js) ou FRIOGEST_DEMO=1.
 // Usa um banco temporário com dados de exemplo e apaga tudo ao fechar — nunca toca em dados reais.
@@ -31,6 +32,7 @@ async function start() {
   Menu.setApplicationMenu(null);
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url) && !url.startsWith(`http://127.0.0.1:${port}`)) shell.openExternal(url); return { action: 'deny' }; });
   await win.loadURL(`http://127.0.0.1:${port}`);
+  if (!DEMO) iniciarAtualizador(() => win);
 }
 
 ipcMain.handle('openExternal', (_, url) => { if (/^https?:\/\//.test(url)) return shell.openExternal(url); });

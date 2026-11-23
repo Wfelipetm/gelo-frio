@@ -12,3 +12,7 @@ relatorio_*.pdf
 # temporários do build
 electron/demo.flag
 manual/*.fragmento.html
+
+# Arquivos soltos (nao versionar)
+GoogleDriveSetup.exe
+Manual-FrioGest.pdf

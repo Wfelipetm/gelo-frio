@@ -1,0 +1,26 @@
+name: Publicar versão
+
+# Roda quando você envia uma tag de versão, ex.: git tag v1.0.1 && git push --tags
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Testes
+        run: npm test
+      - name: Gerar instalador e publicar a Release
+        run: npx electron-builder --win --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

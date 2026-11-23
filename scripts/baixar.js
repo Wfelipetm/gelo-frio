@@ -1,4 +1,5 @@
 'use strict';
+// (teste do freio de publicação)
 // Baixa o instalador OFICIAL mais recente (Release "Latest" do GitHub) e confere se veio íntegro.
 // Uso: npm run baixar            -> salva na raiz do projeto
 //      npm run baixar -- C:\pasta -> salva na pasta escolhida

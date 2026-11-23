@@ -45,6 +45,7 @@
       "server/**",
       "public/**",
       "scripts/seed.js",
+      "build/icon.png",
       "package.json",
       "node_modules/**/*",
       "!node_modules/**/{test,tests,docs,*.md}",
@@ -74,7 +75,7 @@
         }
       ],
       "icon": "build/icon.png",
-      "signAndEditExecutable": false
+      "signExecutable": false
     },
     "nsis": {
       "artifactName": "FrioGest-Setup-${version}.${ext}",

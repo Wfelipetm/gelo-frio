@@ -1,35 +1,68 @@
 name: Publicar versão
 
-# Roda quando você envia uma tag de versão, ex.: npm version patch && git push && git push --tags
+# Todo push na main gera uma versão nova (patch +1) e publica a Release.
+# O app instalado nas lojas baixa a atualização sozinho.
+# Para subir código SEM publicar versão, ponha [skip release] na mensagem do commit.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths-ignore: ['**.md', 'manual/**', '.gitignore']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+# uma publicação por vez, para duas versões nunca receberem o mesmo número
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # precisa das tags para descobrir a última versão
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
+
       - name: Testes
         run: npm test
+
+      - name: Calcular a próxima versão
+        id: ver
+        shell: bash
+        run: |
+          ultima=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          ultima=${ultima:-v1.0.0}
+          IFS=. read -r maior menor patch <<< "${ultima#v}"
+          nova="$maior.$menor.$((patch + 1))"
+          echo "versao=$nova" >> "$GITHUB_OUTPUT"
+          echo "Última: $ultima  ->  Nova: v$nova"
+
+      - name: Gravar a versão no pacote (só no build, não volta para o repositório)
+        shell: bash
+        run: npm version "${{ steps.ver.outputs.versao }}" --no-git-tag-version --allow-same-version
+
       - name: Gerar o instalador (sem publicar)
         run: npx electron-builder --win --x64 --publish never
+
       - name: Criar a Release com todos os arquivos de uma vez
         shell: bash
         # Uma única chamada evita a Release duplicada que o electron-builder cria ao enviar em paralelo
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "dist/FrioGest-Setup-${GITHUB_REF_NAME#v}.exe" \
-            "dist/FrioGest-Setup-${GITHUB_REF_NAME#v}.exe.blockmap" \
+          v="${{ steps.ver.outputs.versao }}"
+          gh release create "v$v" \
+            "dist/FrioGest-Setup-$v.exe" \
+            "dist/FrioGest-Setup-$v.exe.blockmap" \
             dist/latest.yml \
-            --title "${GITHUB_REF_NAME#v}" --generate-notes
+            --target "$GITHUB_SHA" --title "$v" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

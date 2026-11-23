@@ -72,19 +72,19 @@ function renderShell() {
   const ini = String(state.user.nome || '?').split(/\s+/).map(x => (x.match(/\p{L}/u) || [''])[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   const demoBar = state.demo ? `<div class="demo-bar">${icon('eye', 15)} MODO DEMONSTRAÇÃO — dados fictícios para você conhecer o sistema. Pode mexer à vontade: tudo é descartado ao fechar.</div>` : '';
   let mini = false; try { mini = localStorage.getItem('fg_side_mini') === '1'; } catch { /* sem storage: abre normal */ }
-  root.innerHTML = `<div id="app"><aside class="side${mini ? ' mini' : ''}" id="side"><div class="logo"><i>${icon('snowflake', 20)}</i><div class="lt">FrioGest<small>${esc(state.config.loja_nome || '')}</small></div><button class="side-tg" id="side-tg" type="button" aria-label="Recolher menu" title="Recolher menu">${icon(mini ? 'panel-left-open' : 'panel-left-close', 18)}</button></div>
+  root.innerHTML = `<div id="app"><aside class="side${mini ? ' mini' : ''}" id="side"><div class="logo"><i>${icon('snowflake', 20)}</i><div class="lt">FrioGest<small>${esc(state.config.loja_nome || '')}</small></div></div>
     ${items.map(n => { const t = n.r === 'os' && !state.can('os.gerir') ? 'Minhas OS / Agenda' : n.t; return n.grp ? `<div class="navgrp"><span>${n.grp}</span></div>` : `<a class="nav" data-r="${n.r}" href="#/${n.r}" title="${esc(t)}"><b>${icon(n.i, 18)}</b><span class="nl">${esc(t)}</span></a>`; }).join('')}
     <button class="ver" id="ver" type="button"><b id="ver-i"></b><span class="vt"><span id="ver-n">Versão</span><small id="ver-s"></small></span></button>
     <div class="user"><div class="uhead"><div class="uav">${esc(ini)}</div><div><div class="un">${esc(state.user.nome)}</div><span>${esc(ROLES[state.user.role] || state.user.role)}</span></div></div><div class="ulinks">${state.demo ? '' : '<a id="chpw">Trocar senha</a>'}<a id="tour">Tour guiado</a><a id="lo">Sair</a></div></div></aside>
     <div class="main">${demoBar}<div id="up-bar"></div><div id="bk-bar"></div><div class="top"><button class="burger" id="burger" aria-label="Menu">${icon('menu', 22)}</button><h1 id="title"></h1><div class="sp"></div><div id="actions" class="bar" style="margin:0"></div></div><div id="view"></div></div></div>`;
   $('#burger').onclick = () => $('#side').classList.toggle('open');
-  $('#side-tg').onclick = () => {
-    const s = $('#side'), m = s.classList.toggle('mini');
-    $('#side-tg').innerHTML = icon(m ? 'panel-left-open' : 'panel-left-close', 18);
-    $('#side-tg').title = m ? 'Abrir menu' : 'Recolher menu';
+  $('#side').addEventListener('click', e => {
+    if (e.target.closest('.nav')) $('#side').classList.remove('open');
+    // clicar na barra (fora dos itens, do bloco de versão e dos links do usuário) abre/recolhe o menu — só no computador
+    if (e.target.closest('a, button') || !matchMedia('(min-width:981px)').matches) return;
+    const m = $('#side').classList.toggle('mini');
     try { localStorage.setItem('fg_side_mini', m ? '1' : '0'); } catch { /* ignora */ }
-  };
-  $('#side').addEventListener('click', e => { if (e.target.closest('.nav')) $('#side').classList.remove('open'); });
+  });
   $('#lo').onclick = async () => { await api('/logout', { method: 'POST' }).catch(() => {}); renderLogin(); };
   if ($('#chpw')) $('#chpw').onclick = () => changePasswordModal(false);
   $('#tour').onclick = () => { $('#side').classList.remove('open'); iniciarTour({ marcar: false }); };

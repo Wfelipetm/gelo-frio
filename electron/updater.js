@@ -27,7 +27,7 @@ ipcMain.handle('update:check', async () => {
   } catch (e) { set({ estado: 'erro', erro: 'Não foi possível verificar (sem internet?)' }); }
   return status;
 });
-ipcMain.handle('update:install', () => { if (updater && status.estado === 'pronta') updater.quitAndInstall(); });
+ipcMain.handle('update:install', () => { if (updater && status.estado === 'pronta') updater.quitAndInstall(true, true); }); // true,true = instala em silêncio (sem telas) e abre o programa de novo
 
 function iniciarAtualizador(win) {
   getWin = win;

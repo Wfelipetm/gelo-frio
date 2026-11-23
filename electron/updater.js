@@ -1,32 +1,53 @@
 // Atualização automática via GitHub Releases (repositório público Wfelipetm/gelo-frio).
 // Só roda no app instalado (não em dev nem na demonstração). Sem internet, falha em silêncio.
-const { app, dialog } = require('electron');
+// O estado é mostrado na interface (faixa no topo + Configurações > Versão do sistema).
+const { app, ipcMain } = require('electron');
 
-function iniciarAtualizador(getWin) {
+// estado: indisponivel | ocioso | checando | atual | baixando | pronta | erro
+let status = { estado: 'indisponivel', versao: null, percent: 0, erro: null };
+let getWin = () => null;
+let updater = null;
+
+function set(parcial) {
+  status = { ...status, ...parcial };
+  const w = getWin();
+  if (w && !w.isDestroyed()) w.webContents.send('update:status', status);
+}
+
+// Os handlers existem sempre (o preload os expõe); fora do app instalado o estado fica "indisponivel".
+ipcMain.handle('update:status', () => status);
+ipcMain.handle('update:check', async () => {
+  if (!updater) return status;
+  if (status.estado === 'checando' || status.estado === 'baixando') return status;
+  set({ estado: 'checando', erro: null });
+  try {
+    const r = await updater.checkForUpdates();
+    // sem versão nova: o evento "update-not-available" marca como "atual"
+    if (!r || !r.updateInfo) set({ estado: 'atual' });
+  } catch (e) { set({ estado: 'erro', erro: 'Não foi possível verificar (sem internet?)' }); }
+  return status;
+});
+ipcMain.handle('update:install', () => { if (updater && status.estado === 'pronta') updater.quitAndInstall(); });
+
+function iniciarAtualizador(win) {
+  getWin = win;
   if (!app.isPackaged) return;
-  let autoUpdater;
-  try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
+  try { ({ autoUpdater: updater } = require('electron-updater')); } catch { return; }
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true; // se o usuário disser "Depois", instala ao fechar o app
-  autoUpdater.logger = null;
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true; // se o usuário não reiniciar agora, instala ao fechar o app
+  updater.logger = null;
+  set({ estado: 'ocioso' });
 
-  autoUpdater.on('update-downloaded', async info => {
-    const win = getWin();
-    const r = await dialog.showMessageBox(win || undefined, {
-      type: 'info',
-      title: 'FrioGest — atualização',
-      message: `A versão ${info.version} do FrioGest está pronta.`,
-      detail: 'Reiniciar agora para atualizar? Seus dados não serão alterados.',
-      buttons: ['Reiniciar agora', 'Depois'],
-      defaultId: 0, cancelId: 1,
-    });
-    if (r.response === 0) autoUpdater.quitAndInstall();
-  });
-  autoUpdater.on('error', () => { /* sem internet ou sem release: ignora */ });
+  updater.on('checking-for-update', () => set({ estado: 'checando', erro: null }));
+  updater.on('update-available', info => set({ estado: 'baixando', versao: info.version, percent: 0 }));
+  updater.on('update-not-available', () => set({ estado: 'atual', versao: null }));
+  updater.on('download-progress', p => set({ estado: 'baixando', percent: Math.round(p.percent || 0) }));
+  updater.on('update-downloaded', info => set({ estado: 'pronta', versao: info.version, percent: 100 }));
+  updater.on('error', () => { if (status.estado !== 'pronta') set({ estado: 'erro', erro: 'Não foi possível verificar (sem internet?)' }); });
 
-  const checar = () => autoUpdater.checkForUpdates().catch(() => {});
-  setTimeout(checar, 15000);              // 15 s depois de abrir
+  const checar = () => { if (status.estado !== 'baixando' && status.estado !== 'pronta') updater.checkForUpdates().catch(() => {}); };
+  setTimeout(checar, 15000);               // 15 s depois de abrir
   setInterval(checar, 4 * 60 * 60 * 1000); // e a cada 4 horas
 }
 

@@ -8,7 +8,7 @@ const NAMES = [
   'users', 'circle-dollar-sign', 'chart-column', 'key-round', 'settings', 'save', 'eye', 'menu', 'x', 'plus',
   'check', 'check-check', 'arrow-left', 'arrow-right', 'download', 'upload', 'undo-2', 'printer', 'tag',
   'calculator', 'message-circle', 'triangle-alert', 'user', 'phone', 'mail', 'id-card', 'map-pin', 'search',
-  'bell', 'square-check', 'square', 'lock', 'camera', 'play',
+  'bell', 'square-check', 'square', 'lock', 'camera', 'play', 'panel-left-close', 'panel-left-open', 'refresh-cw', 'circle-check',
 ];
 
 const dir = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');

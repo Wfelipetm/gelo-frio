@@ -71,16 +71,78 @@ function renderShell() {
   const items = NAV.filter(allowed);
   const ini = String(state.user.nome || '?').split(/\s+/).map(x => (x.match(/\p{L}/u) || [''])[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   const demoBar = state.demo ? `<div class="demo-bar">${icon('eye', 15)} MODO DEMONSTRAÇÃO — dados fictícios para você conhecer o sistema. Pode mexer à vontade: tudo é descartado ao fechar.</div>` : '';
-  root.innerHTML = `<div id="app"><aside class="side" id="side"><div class="logo"><i>${icon('snowflake', 20)}</i><div>FrioGest<small>${esc(state.config.loja_nome || '')}</small></div></div>
-    ${items.map(n => n.grp ? `<div class="navgrp">${n.grp}</div>` : `<a class="nav" data-r="${n.r}" href="#/${n.r}"><b>${icon(n.i, 18)}</b>${esc(n.r === 'os' && !state.can('os.gerir') ? 'Minhas OS / Agenda' : n.t)}</a>`).join('')}
+  let mini = false; try { mini = localStorage.getItem('fg_side_mini') === '1'; } catch { /* sem storage: abre normal */ }
+  root.innerHTML = `<div id="app"><aside class="side${mini ? ' mini' : ''}" id="side"><div class="logo"><i>${icon('snowflake', 20)}</i><div class="lt">FrioGest<small>${esc(state.config.loja_nome || '')}</small></div><button class="side-tg" id="side-tg" type="button" aria-label="Recolher menu" title="Recolher menu">${icon(mini ? 'panel-left-open' : 'panel-left-close', 18)}</button></div>
+    ${items.map(n => { const t = n.r === 'os' && !state.can('os.gerir') ? 'Minhas OS / Agenda' : n.t; return n.grp ? `<div class="navgrp"><span>${n.grp}</span></div>` : `<a class="nav" data-r="${n.r}" href="#/${n.r}" title="${esc(t)}"><b>${icon(n.i, 18)}</b><span class="nl">${esc(t)}</span></a>`; }).join('')}
+    <button class="ver" id="ver" type="button"><b id="ver-i"></b><span class="vt"><span id="ver-n">Versão</span><small id="ver-s"></small></span></button>
     <div class="user"><div class="uhead"><div class="uav">${esc(ini)}</div><div><div class="un">${esc(state.user.nome)}</div><span>${esc(ROLES[state.user.role] || state.user.role)}</span></div></div><div class="ulinks">${state.demo ? '' : '<a id="chpw">Trocar senha</a>'}<a id="tour">Tour guiado</a><a id="lo">Sair</a></div></div></aside>
-    <div class="main">${demoBar}<div id="bk-bar"></div><div class="top"><button class="burger" id="burger" aria-label="Menu">${icon('menu', 22)}</button><h1 id="title"></h1><div class="sp"></div><div id="actions" class="bar" style="margin:0"></div></div><div id="view"></div></div></div>`;
+    <div class="main">${demoBar}<div id="up-bar"></div><div id="bk-bar"></div><div class="top"><button class="burger" id="burger" aria-label="Menu">${icon('menu', 22)}</button><h1 id="title"></h1><div class="sp"></div><div id="actions" class="bar" style="margin:0"></div></div><div id="view"></div></div></div>`;
   $('#burger').onclick = () => $('#side').classList.toggle('open');
+  $('#side-tg').onclick = () => {
+    const s = $('#side'), m = s.classList.toggle('mini');
+    $('#side-tg').innerHTML = icon(m ? 'panel-left-open' : 'panel-left-close', 18);
+    $('#side-tg').title = m ? 'Abrir menu' : 'Recolher menu';
+    try { localStorage.setItem('fg_side_mini', m ? '1' : '0'); } catch { /* ignora */ }
+  };
   $('#side').addEventListener('click', e => { if (e.target.closest('.nav')) $('#side').classList.remove('open'); });
   $('#lo').onclick = async () => { await api('/logout', { method: 'POST' }).catch(() => {}); renderLogin(); };
   if ($('#chpw')) $('#chpw').onclick = () => changePasswordModal(false);
   $('#tour').onclick = () => { $('#side').classList.remove('open'); iniciarTour({ marcar: false }); };
   checarBackupExterno();
+  ligarAtualizacao();
+}
+
+// Atualização do programa: bloco "Versão" no menu lateral + faixa azul quando há versão nova.
+// Só funciona no programa instalado. Para ver no navegador, abra com ?simular-update=pronta
+// (ou =baixando, =atual, =erro).
+let versaoApp = '';
+async function ligarAtualizacao() {
+  const sim = new URLSearchParams(location.search).get('simular-update');
+  const up = window.friogest?.update;
+  try { versaoApp = (await api('/info')).versao || ''; } catch { /* ignora */ }
+  const v = versaoApp && versaoApp !== 'dev' ? `Versão ${versaoApp}` : 'Versão de desenvolvimento';
+  let atual = { estado: 'indisponivel' };
+
+  const desenhar = s => {
+    atual = s;
+    const bt = $('#ver'); if (!bt) return;
+    const novo = esc(s.versao || '');
+    const mapa = {
+      indisponivel: ['circle-check', v, 'Atualiza só no programa instalado', ''],
+      ocioso: ['refresh-cw', v, 'Verificar atualizações', ''],
+      atual: ['circle-check', v, 'Atualizado · verificar de novo', 'ok'],
+      checando: ['refresh-cw', v, 'Verificando…', 'gira'],
+      baixando: ['download', `Baixando ${novo}`, `${s.percent || 0}% concluído`, 'gira'],
+      pronta: ['download', `Nova versão ${novo}`, 'Clique para reiniciar e atualizar', 'pronta'],
+      erro: ['refresh-cw', v, esc(s.erro || 'Sem conexão') + ' · tentar de novo', 'erro'],
+    };
+    const [ic, t, sub, cls] = mapa[s.estado] || mapa.indisponivel;
+    bt.className = 'ver ' + cls;
+    bt.title = `${t} — ${sub}`.replace(/&[a-z]+;/g, '');
+    $('#ver-i').innerHTML = icon(ic, 18);
+    $('#ver-n').innerHTML = t; $('#ver-s').innerHTML = sub;
+
+    const el = $('#up-bar'); if (!el) return;
+    if (s.estado === 'pronta') {
+      el.className = 'bk-bar info';
+      el.innerHTML = `${icon('download', 15)} A versão ${novo} do FrioGest está pronta. <button class="btn p" id="up-go" type="button">Reiniciar e atualizar</button>`;
+      $('#up-go').onclick = instalar;
+    } else { el.className = ''; el.innerHTML = ''; }
+  };
+  const instalar = () => (up ? up.install() : toast('Simulação: aqui o programa reiniciaria', 'ok'));
+
+  $('#ver').onclick = async () => {
+    if (atual.estado === 'pronta') return instalar();
+    if (sim) { desenhar({ estado: 'checando' }); setTimeout(() => desenhar({ estado: 'atual' }), 1200); return; }
+    if (!up) return toast('As atualizações automáticas funcionam no programa instalado.', 'ok');
+    if (atual.estado === 'checando' || atual.estado === 'baixando') return;
+    desenhar({ estado: 'checando' });
+    try { desenhar(await up.check()); } catch { desenhar({ estado: 'erro' }); }
+  };
+
+  if (sim) { desenhar({ estado: ['baixando', 'atual', 'erro'].includes(sim) ? sim : 'pronta', versao: '1.0.2', percent: 42 }); return; }
+  desenhar(atual);
+  if (up) { up.status().then(desenhar).catch(() => {}); up.onStatus(desenhar); }
 }
 
 // Faixa de alerta da cópia externa do backup (só para quem pode ver backups; não aparece na demonstração)

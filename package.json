@@ -54,7 +54,8 @@
       {
         "provider": "github",
         "owner": "Wfelipetm",
-        "repo": "gelo-frio"
+        "repo": "gelo-frio",
+        "releaseType": "release"
       }
     ],
     "npmRebuild": false,

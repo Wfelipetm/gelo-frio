@@ -33,6 +33,7 @@ async function start() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url) && !url.startsWith(`http://127.0.0.1:${port}`)) shell.openExternal(url); return { action: 'deny' }; });
   await win.loadURL(`http://127.0.0.1:${port}`);
   if (!DEMO) iniciarAtualizador(() => win);
+
 }
 
 ipcMain.handle('openExternal', (_, url) => { if (/^https?:\/\//.test(url)) return shell.openExternal(url); });

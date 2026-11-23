@@ -72,7 +72,9 @@ function createServer(opts) {
         resolve({ server, port: p, host });
       });
       server.once('error', e => {
-        if (e.code === 'EADDRINUSE' && tries++ < 20) attempt(p + 1); else reject(e);
+        // porta ocupada (EADDRINUSE) ou reservada pelo Windows (EACCES: Hyper-V, Docker, WSL): tenta a próxima.
+        // As faixas reservadas costumam ter ~50 portas, por isso o limite é folgado.
+        if ((e.code === 'EADDRINUSE' || e.code === 'EACCES') && tries++ < 120) attempt(p + 1); else reject(e);
       });
     };
     attempt(port);

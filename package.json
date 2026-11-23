@@ -1,6 +1,6 @@
 {
   "name": "friogest",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "dependencies": {
     "better-sqlite3": "^13.2.0",

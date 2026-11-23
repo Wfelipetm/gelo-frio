@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('friogest', {
+  titleBar: true,
   savePdf: o => ipcRenderer.invoke('savePdf', o),
   openExternal: u => ipcRenderer.invoke('openExternal', u),
   restart: () => ipcRenderer.invoke('restart'),

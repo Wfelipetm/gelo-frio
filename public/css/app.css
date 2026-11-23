@@ -26,6 +26,14 @@ h1{font-size:20px;letter-spacing:-.3px}h2{font-size:17px;letter-spacing:-.2px}h3
 
 /* ---------- layout ---------- */
 #app{display:flex;height:100vh;overflow:hidden}
+/* barra de título azul (só no programa instalado; o Windows põe os botões por cima, à direita) */
+#titlebar{display:none}
+html.tb{--tb:36px}
+html.tb #titlebar{display:flex;align-items:center;gap:9px;position:fixed;top:0;left:0;right:0;height:var(--tb);padding:0 150px 0 14px;background:#1a5fd0;color:#fff;font-size:12.5px;font-weight:500;letter-spacing:.1px;-webkit-app-region:drag;user-select:none;z-index:300}
+html.tb #titlebar .lu{flex-shrink:0;opacity:.95}
+html.tb body{padding-top:var(--tb)}
+html.tb #app{height:calc(100vh - var(--tb))}
+html.tb .login{min-height:calc(100vh - var(--tb))}
 .side{width:244px;background:linear-gradient(180deg,#0d2040 0,#0a1830 100%);color:#aebbd0;padding:16px 12px 12px;display:flex;flex-direction:column;gap:2px;flex-shrink:0;overflow:auto;border-right:1px solid rgba(255,255,255,.04)}
 .logo{display:flex;align-items:center;gap:11px;color:#fff;font-weight:700;font-size:18px;letter-spacing:-.3px;padding:2px 8px 18px}
 .logo i{width:36px;height:36px;border-radius:10px;background:linear-gradient(140deg,#4cc3ff,#1a5fd0 70%);display:grid;place-items:center;font-style:normal;flex-shrink:0;color:#fff;box-shadow:0 6px 16px rgba(26,95,208,.45),inset 0 1px 0 rgba(255,255,255,.3)}

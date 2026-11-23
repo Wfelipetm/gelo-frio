@@ -1,6 +1,15 @@
 import { icon, $, $$, esc, api, state, toast, fail, modal, getForm, fld, isElectron, ROLES } from './core.js';
 import { iniciarTour, tourVisto } from './tour.js';
 
+// Barra de título azul (só no programa instalado). Para ver no navegador: abra com ?simular-titlebar
+if (window.friogest?.titleBar || new URLSearchParams(location.search).has('simular-titlebar')) {
+  document.documentElement.classList.add('tb');
+  const tb = $('#titlebar'), tit = document.querySelector('title');
+  const pintar = () => { tb.innerHTML = `${icon('snowflake', 15)}<span>${esc(document.title)}</span>`; };
+  pintar();
+  new MutationObserver(pintar).observe(tit, { childList: true });
+}
+
 const NAV = [
   { r: 'painel', t: 'Painel', i: 'layout-dashboard', mod: 'painel' },
   { r: 'pdv', t: 'Nova venda', i: 'shopping-cart', perm: 'venda.criar', mod: 'pdv' },

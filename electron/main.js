@@ -28,6 +28,8 @@ async function start() {
   PORT = port;
   if (DEMO) await seedDemo(port);
   win = new BrowserWindow({ width: 1366, height: 820, minWidth: 1000, minHeight: 640, title: DEMO ? 'FrioGest — Demonstração' : 'FrioGest', backgroundColor: '#f4f6fa', autoHideMenuBar: true,
+    // barra de título azul: a faixa é da página (#titlebar); o Windows desenha só os botões minimizar/maximizar/fechar
+    titleBarStyle: 'hidden', titleBarOverlay: { color: '#1a5fd0', symbolColor: '#ffffff', height: 36 },
     icon: path.join(__dirname, '..', 'build', 'icon.png'), webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false } });
   Menu.setApplicationMenu(null);
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url) && !url.startsWith(`http://127.0.0.1:${port}`)) shell.openExternal(url); return { action: 'deny' }; });

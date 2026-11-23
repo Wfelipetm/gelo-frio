@@ -20,6 +20,38 @@ const ATENCAO = x => ({ t: 'atencao', x });
 const LISTA = itens => ({ t: 'lista', itens });
 const TAB = (cab, linhas) => ({ t: 'tab', cab, linhas });
 
+cap('instalar', 'Instalar e atualizar o FrioGest', 'Como instalar o programa no computador da loja e como ele se atualiza sozinho.', [
+  P('Na pasta <b>Instalar-FrioGest</b> estão os arquivos de instalação: o <b>instalador do FrioGest</b> (o arquivo <b>FrioGest-Setup-…exe</b>), o <b>instalador do Google Drive</b> (<b>GoogleDriveSetup.exe</b>) e este manual.'),
+  PASSOS('Instalar o FrioGest', [
+    'Dê dois cliques no arquivo <b>FrioGest-Setup-…exe</b>.',
+    'Se o Windows mostrar <b>"O Windows protegeu o seu PC"</b>, clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>. Isso é normal: o instalador ainda não tem assinatura digital.',
+    'Se aparecer o pedido de permissão do Windows, clique em <b>Sim</b>.',
+    'Escolha <b>Para todos que usam esta máquina</b> e clique em <b>Próximo</b>. Mantenha a pasta sugerida, clique em <b>Instalar</b> e depois em <b>Concluir</b>.',
+    'Abra o FrioGest pelo ícone da <b>área de trabalho</b>. O primeiro acesso está explicado no capítulo <b>Primeiros passos</b>.',
+  ]),
+  PASSOS('Instalar o Google Drive (cópia de segurança)', [
+    'Dê dois cliques em <b>GoogleDriveSetup.exe</b> e conclua a instalação.',
+    'Entre com a conta do Google da loja. Na tela <i>"Escolha pastas do computador para sincronizar"</i>, <b>não marque nada</b> e clique em <b>Pular</b>.',
+    'No Explorador de Arquivos, abra a unidade do Google Drive e, dentro de <b>Meu Drive</b>, crie a pasta <b>FrioGest-Backup</b>.',
+    'Configure essa pasta no FrioGest, em <b>Backup &gt; Cópia externa</b>. O passo a passo está no capítulo <b>Backup</b>.',
+  ]),
+  ATENCAO('Ao <b>desinstalar</b> o FrioGest, o instalador pergunta se você quer apagar também os dados da loja. Responda <b>Não</b>, a menos que tenha certeza: os dados ficam guardados e voltam quando o programa for instalado de novo.'),
+  PASSOS('Atualizar o FrioGest', [
+    'O sistema <b>procura sozinho</b> uma versão nova sempre que abre e de tempos em tempos (precisa de internet). Para procurar na hora, clique em <b>Versão</b> no rodapé do menu.',
+    'Quando existe uma atualização, ela é baixada em segundo plano, o bloco <b>Versão</b> fica <b>azul</b> e aparece uma faixa azul no topo: <i>"A versão … do FrioGest está pronta"</i>.',
+    'Clique em <b>Reiniciar e atualizar</b>. O programa fecha, atualiza e abre de novo sozinho, em poucos segundos. Se o Windows pedir permissão, clique em <b>Sim</b>.',
+    'Os dados da loja <b>não são alterados</b>. Se preferir deixar para depois, não precisa fazer nada: a atualização é instalada quando o programa for fechado.',
+  ]),
+  TAB(['O bloco "Versão" mostra', 'O que significa'], [
+    ['Atualizado', 'Você já está na versão mais recente.'],
+    ['Verificando…', 'O sistema está procurando uma atualização.'],
+    ['Baixando… 42%', 'A atualização está sendo baixada. Pode continuar trabalhando.'],
+    ['Nova versão (azul)', 'Pronta. Clique para reiniciar e atualizar.'],
+    ['Sem conexão', 'Sem internet no momento. Tente de novo mais tarde.'],
+  ]),
+  DICA('Antes de uma atualização, vale clicar em <b>Backup &gt; Fazer backup agora</b>. Leva poucos segundos e deixa uma cópia fresca guardada.'),
+]);
+
 cap('comecar', 'Primeiros passos', 'Como entrar no sistema, criar a sua senha e conhecer a tela inicial.', [
   PASSOS('Entrar no FrioGest', [
     'Dê dois cliques no ícone <b>FrioGest</b> na área de trabalho. O sistema abre numa janela própria. Não precisa de internet.',
@@ -33,8 +65,9 @@ cap('comecar', 'Primeiros passos', 'Como entrar no sistema, criar a sua senha e 
     'Os <b>cartões</b> mostram o resumo do dia: vendas, orçamentos esperando resposta, ordens de serviço abertas, produtos abaixo do mínimo e valores a receber vencidos.',
     'Os botões do topo (<b>Novo orçamento</b>, <b>Nova venda</b>, <b>Nova OS</b>) são os atalhos mais usados.',
   ]),
-  FIG('02-painel', { 1: 'Menu com todas as telas. A tela aberta fica destacada.', 2: 'Cartões de resumo. Valores em vermelho pedem atenção.', 3: 'Atalho para uma <b>nova venda</b>.', 4: 'Seu nome e perfil, com <b>Trocar senha</b>, <b>Tour guiado</b> e <b>Sair</b>.' }),
-  P('<b>Tour guiado:</b> na primeira vez que você entra, o sistema mostra um passeio rápido por todas as telas. Use as setas <b>← →</b> para navegar e <b>Esc</b> para sair. Para ver de novo, clique em <b>Tour guiado</b> no rodapé do menu.'),
+  FIG('02-painel', { 1: 'Menu com todas as telas. A tela aberta fica destacada.', 2: 'Cartões de resumo. Valores em vermelho pedem atenção.', 3: 'Atalho para uma <b>nova venda</b>.', 4: 'Seu nome e perfil, os botões <b>Senha</b>, <b>Tour</b> e <b>Sair</b> e a <b>versão</b> do programa.' }),
+  P('<b>Menu recolhível:</b> clique em uma área livre da barra escura do menu para recolher e deixar só os ícones. Clique de novo para abrir. O sistema lembra a sua escolha.'),
+  P('<b>Tour guiado:</b> na primeira vez que você entra, o sistema mostra um passeio rápido por todas as telas. Use as setas <b>← →</b> para navegar e <b>Esc</b> para sair. Para ver de novo, clique em <b>Tour</b> no rodapé do menu.'),
   FIG('24-tour', {}),
   P('<b>Quem vê o quê:</b> cada pessoa tem um perfil que define o que aparece no menu.'),
   TAB(['Perfil', 'O que pode fazer'], [
@@ -236,6 +269,8 @@ cap('duvidas', 'Dúvidas frequentes', 'Respostas rápidas para os problemas mais
   TAB(['Pergunta', 'Resposta'], [
     ['O sistema precisa de internet?', 'Não. Ele roda no computador da loja. A internet só é usada para o WhatsApp e para a cópia de segurança no Google Drive.'],
     ['O sistema emite nota fiscal?', '<b>Não.</b> O cupom e o recibo são <b>comprovantes não fiscais</b>. A nota fiscal continua sendo emitida no programa que a loja usa hoje.'],
+    ['Como atualizo o sistema?', 'Ele atualiza sozinho. Quando o bloco <b>Versão</b> do menu ficar azul, clique em <b>Reiniciar e atualizar</b>. Veja o capítulo <b>Instalar e atualizar o FrioGest</b>.'],
+    ['O Windows pediu permissão ao atualizar.', 'É normal. Clique em <b>Sim</b>.'],
     ['Esqueci a senha.', 'Peça ao master para abrir <b>Usuários</b> e usar <b>redefinir senha</b>. Você cria uma senha nova no próximo acesso.'],
     ['Não consigo vender um produto.', 'Veja se há saldo em <b>Estoque</b>. Sem saldo, o sistema bloqueia. Dê entrada na mercadoria primeiro.'],
     ['A venda foi lançada errada.', 'Abra a venda em <b>Vendas</b> e use <b>Devolver itens</b> ou <b>Cancelar venda</b> (perfil com permissão). O estoque volta sozinho.'],
@@ -328,7 +363,7 @@ function bloco(b) {
 
 const data = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 const corpo = `<div class="wrap">
-<header class="capa"><div class="k">Manual do usuário</div><h1>FrioGest</h1><p>Vendas, orçamentos, estoque, gás refrigerante, ordens de serviço e financeiro da sua loja de refrigeração. Passo a passo, com as telas do sistema.</p><div class="v">Versão 1.0 · ${esc(data)}</div></header>
+<header class="capa"><div class="k">Manual do usuário</div><h1>FrioGest</h1><p>Vendas, orçamentos, estoque, gás refrigerante, ordens de serviço e financeiro da sua loja de refrigeração. Passo a passo, com as telas do sistema.</p><div class="v">Atualizado em ${esc(data)}</div></header>
 <nav class="sumario" aria-label="Sumário"><h2>Neste manual</h2><ol>${C.map(c => `<li><a href="#${c.id}">${c.titulo}</a></li>`).join('')}</ol></nav>
 ${C.map((c, i) => `<section class="cap" id="${c.id}"><h2><span class="n">${String(i + 1).padStart(2, '0')}</span>${c.titulo}</h2><p class="intro">${c.intro}</p>${c.blocos.map(bloco).join('\n')}</section>`).join('\n')}
 <footer>Os nomes de clientes, produtos e valores das imagens são exemplos. Em caso de dúvida, procure o responsável pelo sistema na sua loja.</footer>

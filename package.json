@@ -23,6 +23,8 @@
     "test": "node tests/smoke.js && node tests/printer.js && node tests/backup.js",
     "dist": "electron-builder --win --x64",
     "baixar": "node scripts/baixar.js",
+    "pacote": "node scripts/baixar.js && node scripts/manual-build.js && node scripts/manual-pdf.js Instalar-FrioGest",
+    "manual": "node scripts/manual-prints.js && node scripts/manual-build.js && node scripts/manual-pdf.js",
     "dist:dir": "electron-builder --dir",
     "test:e2e": "node tests/e2e.js",
     "test:e2e:live": "node tests/e2e-live.js",

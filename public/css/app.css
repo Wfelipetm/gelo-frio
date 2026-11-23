@@ -46,7 +46,8 @@ html.tb .login{min-height:calc(100vh - var(--tb))}
 .nav:hover b{color:#cfe0fb}.nav.on b{color:#4cc3ff}
 .navgrp{font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px;font-weight:600;color:#5f7699;padding:18px 12px 6px}
 /* rodapé do menu: um cartão só (usuário + ações + versão) */
-.side-foot{margin-top:auto;padding-top:14px}
+/* o rodapé fica sempre visível no fim do menu; só os itens rolam por baixo dele */
+.side-foot{margin-top:auto;padding-top:14px;position:sticky;bottom:-12px;margin-bottom:-12px;padding-bottom:12px;background:#0a1830;box-shadow:0 -12px 14px #0a1830;z-index:2}
 .side .user{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);font-size:13px;color:#fff}
 .user .uhead{display:flex;align-items:center;gap:10px;min-width:0}
 .uav{width:36px;height:36px;border-radius:50%;background:linear-gradient(140deg,#4cc3ff,#1a5fd0);display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:.3px;box-shadow:0 0 0 2px rgba(255,255,255,.1)}

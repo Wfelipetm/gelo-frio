@@ -12,6 +12,8 @@ const { prepareDemo, seedDemo, DEMO_USER, DEMO_PASS } = require('../server/demo'
 
 const OUT = path.join(__dirname, '..', 'manual', 'img');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// versão que aparece no menu dos prints: a da última Release (se não der para consultar, 1.0.0)
+const versaoAtual = async () => { try { const r = await (await fetch('https://api.github.com/repos/Wfelipetm/gelo-frio/releases/latest', { headers: { 'User-Agent': 'friogest-manual' } })).json(); return String(r.tag_name || '').replace(/^v/, '') || '1.0.0'; } catch { return '1.0.0'; } };
 const J = JSON.stringify;
 
 function navegador() {
@@ -90,7 +92,7 @@ const tentar = async (nome, fn) => { try { await fn(); } catch (e) { console.log
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'friogest-manual-'));
-  const srv = createServer({ dataDir: dir, backupDir: path.join(dir, 'backups'), publicDir: path.join(__dirname, '..', 'public'), readNet: () => ({ lan: false, port: 0 }), writeNet: () => {}, version: '1.0.0' });
+  const srv = createServer({ dataDir: dir, backupDir: path.join(dir, 'backups'), publicDir: path.join(__dirname, '..', 'public'), readNet: () => ({ lan: false, port: 0 }), writeNet: () => {}, version: await versaoAtual() });
   prepareDemo(srv.db);
   const { port } = await srv.listen(40000 + Math.floor(Math.random() * 20000), '127.0.0.1');
   await seedDemo(port);
@@ -103,7 +105,7 @@ const tentar = async (nome, fn) => { try { await fn(); } catch (e) { console.log
   ws.onmessage = m => { const d = JSON.parse(m.data); if (d.id && pend[d.id]) { pend[d.id](d); delete pend[d.id]; } };
   await cdp('Runtime.enable'); await cdp('Page.enable');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1366, height: 820, deviceScaleFactor: 1, mobile: false });
-  await cdp('Page.navigate', { url: `http://127.0.0.1:${port}/` });
+  await cdp('Page.navigate', { url: `http://127.0.0.1:${port}/?simular-update=atual` }); // o menu mostra "Atualizado" nos prints
   await waitSel('#lf', 15000);
 
   // ---------------- login

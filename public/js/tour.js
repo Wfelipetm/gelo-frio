@@ -89,7 +89,7 @@ function passos() {
     text: 'Tudo o que é feito no sistema fica registrado: <b>quem, quando e o quê</b> (preços alterados, descontos, cancelamentos…).' });
 
   add({ title: 'Sua conta', sel: '.side .user', side: true, place: 'right', hash: '#/painel',
-    text: 'Aqui você <b>troca a senha</b>, <b>sai</b> do sistema e reabre este <b>Tour guiado</b> sempre que precisar.' });
+    text: 'Aqui você <b>troca a senha</b>, <b>sai</b> do sistema, reabre este <b>Tour</b> sempre que precisar e vê a <b>versão</b> do programa. Quando houver uma atualização, o bloco da versão fica azul: é só clicar para atualizar.' });
   add({ title: 'Tudo pronto!', hash: '#/painel',
     text: `Você já conhece o FrioGest. Para começar, que tal registrar uma <b>venda</b> ou criar um <b>orçamento</b>?<br><br><b>Atalhos úteis:</b> <kbd>F2</kbd> busca no PDV · <kbd>F10</kbd> finalizar venda.<br>Dúvidas? Refaça o tour em <b>Tour guiado</b>.` });
   return S;

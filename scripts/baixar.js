@@ -1,7 +1,7 @@
 'use strict';
 // (teste do freio de publicação)
 // Baixa o instalador OFICIAL mais recente (Release "Latest" do GitHub) e confere se veio íntegro.
-// Uso: npm run baixar            -> salva na raiz do projeto
+// Uso: npm run baixar            -> salva na pasta Instalar-FrioGest (raiz do projeto), trocando a versão antiga
 //      npm run baixar -- C:\pasta -> salva na pasta escolhida
 const fs = require('fs');
 const path = require('path');
@@ -24,7 +24,7 @@ async function get(url, opts) {
   if (!exe) throw new Error('A Release mais recente não tem o instalador (.exe).');
   const versao = String(rel.tag_name || '').replace(/^v/, '');
 
-  const pasta = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..'); // padrão: raiz do projeto
+  const pasta = process.argv[2] ? path.resolve(process.argv[2]) : path.join(__dirname, '..', 'Instalar-FrioGest'); // padrão: pasta de instalação na raiz
   fs.mkdirSync(pasta, { recursive: true });
   const destino = path.join(pasta, exe.name);
 
@@ -39,5 +39,6 @@ async function get(url, opts) {
     log(esperado ? 'Conferido: o arquivo está íntegro.' : 'Aviso: latest.yml sem assinatura para conferir.');
   }
   fs.writeFileSync(destino, buf);
+  for (const o of fs.readdirSync(pasta)) if (/^FrioGest-Setup-.*.exe$/i.test(o) && o !== exe.name) { fs.rmSync(path.join(pasta, o), { force: true }); log('Removida a versão antiga: ' + o); }
   log(`\nPronto: ${destino}\nFeche o FrioGest e dê duplo clique nesse arquivo para instalar (os dados são mantidos).`);
 })().catch(e => { console.error('Falhou: ' + e.message); process.exit(1); });

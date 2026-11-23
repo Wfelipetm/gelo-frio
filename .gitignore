@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-demo/
+dev-data/
+test-report/
+*.log
+.DS_Store
+Thumbs.db
+# dados reais da loja
+Controle Financeiro.xlsx
+relatorio_*.pdf
+# temporários do build
+electron/demo.flag
+manual/*.fragmento.html

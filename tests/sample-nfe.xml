@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+<NFe><infNFe Id="NFe35261111222333000144550010000482131000482139" versao="4.00">
+<ide><nNF>48213</nNF><dhEmi>2026-11-16T10:22:00-03:00</dhEmi></ide>
+<emit><CNPJ>11222333000144</CNPJ><xNome>Distribuidora Frio Sul Ltda</xNome></emit>
+<det nItem="1"><prod><cProd>EP-35-5</cProd><cEAN>SEM GTIN</cEAN><xProd>CAPACITOR DUPLO 35+5UF 440V</xProd><uCom>UN</uCom><qCom>30.0000</qCom><vUnCom>21.4000</vUnCom></prod></det>
+<det nItem="2"><prod><cProd>R410A-KG</cProd><cEAN>SEM GTIN</cEAN><xProd>GAS R410A CIL 11,34KG</xProd><uCom>CIL</uCom><qCom>2.0000</qCom><vUnCom>610.0000</vUnCom></prod></det>
+<det nItem="3"><prod><cProd>CU-14</cProd><cEAN>7891234567895</cEAN><xProd>TUBO COBRE FLEX 1/4 X 15M</xProd><uCom>RL</uCom><qCom>6.0000</qCom><vUnCom>238.0000</vUnCom></prod></det>
+<det nItem="4"><prod><cProd>PLACA-UNI-9</cProd><cEAN>SEM GTIN</cEAN><xProd>PLACA UNIVERSAL SPLIT 9-30K</xProd><uCom>UN</uCom><qCom>5.0000</qCom><vUnCom>118.0000</vUnCom></prod></det>
+<total><ICMSTot><vNF>3880.00</vNF></ICMSTot></total>
+<cobr><dup><nDup>001</nDup><dVenc>2026-12-16</dVenc><vDup>1940.00</vDup></dup><dup><nDup>002</nDup><dVenc>2027-01-15</dVenc><vDup>1940.00</vDup></dup></cobr>
+</infNFe></NFe></nfeProc>

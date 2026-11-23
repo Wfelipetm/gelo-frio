@@ -1,0 +1,227 @@
+[
+ {
+  "arquivo": "01-login",
+  "titulo": "Tela de entrada",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "22-backup-aviso",
+  "titulo": "Backup sem cópia externa: o sistema avisa",
+  "marcas": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ {
+  "arquivo": "02-painel",
+  "titulo": "Painel",
+  "marcas": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ {
+  "arquivo": "03-pdv",
+  "titulo": "Nova venda (PDV)",
+  "marcas": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ {
+  "arquivo": "04-pdv-carrinho",
+  "titulo": "Venda montada com itens, desconto e forma de pagamento",
+  "marcas": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ {
+  "arquivo": "05-vendas",
+  "titulo": "Lista de vendas",
+  "marcas": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ {
+  "arquivo": "06-venda-detalhe",
+  "titulo": "Detalhe da venda (devolução e cancelamento)",
+  "marcas": []
+ },
+ {
+  "arquivo": "07-orcamentos",
+  "titulo": "Lista de orçamentos",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "08-orcamento",
+  "titulo": "Orçamento aberto",
+  "marcas": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ]
+ },
+ {
+  "arquivo": "09-os-lista",
+  "titulo": "Ordens de serviço",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "10-os",
+  "titulo": "Ordem de serviço aberta",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "10b-os-laudo",
+  "titulo": "Laudo técnico e assinatura do cliente",
+  "marcas": [
+   1
+  ]
+ },
+ {
+  "arquivo": "11-estoque",
+  "titulo": "Estoque",
+  "marcas": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ {
+  "arquivo": "12-produto-novo",
+  "titulo": "Cadastro de produto",
+  "marcas": []
+ },
+ {
+  "arquivo": "13-estoque-entrada",
+  "titulo": "Entrada de mercadoria (manual ou XML da NF-e)",
+  "marcas": [
+   1
+  ]
+ },
+ {
+  "arquivo": "14-gas",
+  "titulo": "Gás refrigerante por cilindro",
+  "marcas": [
+   1,
+   2
+  ]
+ },
+ {
+  "arquivo": "15-clientes",
+  "titulo": "Clientes",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "16-cliente-ficha",
+  "titulo": "Ficha do cliente com equipamentos e histórico",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "17-financeiro",
+  "titulo": "Financeiro: a receber, a pagar e caixa",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "18-relatorios",
+  "titulo": "Relatórios",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "19-usuarios",
+  "titulo": "Usuários e perfis",
+  "marcas": [
+   1,
+   2
+  ]
+ },
+ {
+  "arquivo": "20-config",
+  "titulo": "Configurações da loja",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "21-config-impressora",
+  "titulo": "Configurações: impressora térmica",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "22b-backup-em-dia",
+  "titulo": "Backup com a cópia externa em dia",
+  "marcas": [
+   1,
+   2,
+   3
+  ]
+ },
+ {
+  "arquivo": "23-auditoria",
+  "titulo": "Auditoria",
+  "marcas": [
+   1
+  ]
+ },
+ {
+  "arquivo": "24-tour",
+  "titulo": "Tour guiado",
+  "marcas": []
+ }
+]

@@ -1,0 +1,80 @@
+{
+  "name": "friogest",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "better-sqlite3": "^13.2.0",
+    "express": "^5.3.0",
+    "fast-xml-parser": "^5.12.1"
+  },
+  "devDependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "electron": "^45.3.3",
+    "electron-builder": "^26.18.0",
+    "lucide-static": "^1.74.0"
+  },
+  "description": "FrioGest - sistema para loja de refrigeração",
+  "author": "FrioGest",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "node server/dev.js",
+    "test": "node tests/smoke.js && node tests/printer.js && node tests/backup.js",
+    "dist": "electron-builder --win --x64",
+    "dist:dir": "electron-builder --dir",
+    "test:e2e": "node tests/e2e.js",
+    "test:e2e:live": "node tests/e2e-live.js",
+    "test:e2e:prints": "node tests/e2e-prints.js",
+    "seed": "node scripts/seed.js",
+    "seed:browser": "node scripts/seed-browser.js",
+    "demo": "node scripts/demo.js",
+    "dist:demo": "node scripts/build-demo.js"
+  },
+  "build": {
+    "appId": "br.com.friogest.app",
+    "productName": "FrioGest",
+    "copyright": "FrioGest",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**",
+      "server/**",
+      "public/**",
+      "scripts/seed.js",
+      "package.json",
+      "node_modules/**/*",
+      "!node_modules/**/{test,tests,docs,*.md}",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**"
+    ],
+    "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FrioGest",
+      "language": "1046",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

@@ -123,6 +123,22 @@ export async function backup(root, ctx) {
 
 export async function auditoria(root, ctx) {
   ctx.top('Auditoria');
-  const rows = await api('/auditoria?limit=500');
-  root.innerHTML = `<div class="card">${table([{ h: 'Quando', f: a => fdt(a.created_at) }, { h: 'Usuário', f: a => esc(a.username || '') }, { h: 'Ação', f: a => `<span class="tag t-cz">${esc(a.acao)}</span>` }, { h: 'Detalhe', f: a => esc(a.detalhe || '') }], rows, { empty: 'Sem registros.' })}</div>`;
+  const cols = [{ h: 'Quando', f: a => fdt(a.created_at) }, { h: 'Usuário', f: a => esc(a.username || '') }, { h: 'Ação', f: a => `<span class="tag t-cz">${esc(a.acao)}</span>` }, { h: 'Detalhe', f: a => esc(a.detalhe || '') }];
+  let pagina = 1;
+  const carregar = async () => {
+    const r = await api(`/auditoria?pagina=${pagina}&por=50`);
+    pagina = r.pagina;
+    const de = r.total ? (r.pagina - 1) * r.por + 1 : 0, ate = Math.min(r.pagina * r.por, r.total);
+    const nav = r.paginas > 1 ? `<div class="pager"><span class="muted">${de}–${ate} de ${r.total} registros · página ${r.pagina} de ${r.paginas}</span><span class="sp"></span>
+      <button class="btn" id="pg-ini" ${r.pagina <= 1 ? 'disabled' : ''}>Primeira</button>
+      <button class="btn" id="pg-ant" ${r.pagina <= 1 ? 'disabled' : ''}>${icon('chevron-left', 16)} Anterior</button>
+      <button class="btn" id="pg-prox" ${r.pagina >= r.paginas ? 'disabled' : ''}>Próxima ${icon('chevron-right', 16)}</button>
+      <button class="btn" id="pg-fim" ${r.pagina >= r.paginas ? 'disabled' : ''}>Última</button></div>` : `<div class="pager"><span class="muted">${r.total} registro(s)</span></div>`;
+    root.innerHTML = `<div class="card">${table(cols, r.itens, { empty: 'Sem registros.' })}${nav}</div>`;
+    const ir = n => () => { pagina = n; carregar().catch(fail); };
+    const b = id => $(id, root);
+    if (b('#pg-ini')) { b('#pg-ini').onclick = ir(1); b('#pg-ant').onclick = ir(pagina - 1); b('#pg-prox').onclick = ir(pagina + 1); b('#pg-fim').onclick = ir(r.paginas); }
+    root.closest('.main')?.scrollTo?.(0, 0); window.scrollTo(0, 0);
+  };
+  await carregar();
 }

@@ -256,3 +256,5 @@ a .lu{vertical-align:-3px}
 .tour-text kbd{background:var(--gelo);border:1px solid var(--linha);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:inherit;font-size:12px;color:var(--txt)}
 .tour-bar{height:4px;border-radius:4px;background:var(--linha);margin:14px 0}.tour-bar i{display:block;height:100%;border-radius:4px;background:var(--azul);transition:width .25s}
 .tour-btns{display:flex;gap:8px;align-items:center}.tour-btns .grow{flex:1}
+/* paginação (auditoria) */
+.pager{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 4px 4px;border-top:1px solid var(--linha);margin-top:6px}.pager .sp{flex:1}.pager .btn:disabled{opacity:.45;cursor:default}

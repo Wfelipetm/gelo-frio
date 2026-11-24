@@ -160,5 +160,14 @@ module.exports = (r, ctx) => {
     res.download(f);
   });
 
-  r.get('/auditoria', need('auditoria'), wrap(req => db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT ?').all(Math.min(+req.query.limit || 200, 1000))));
+  r.get('/auditoria', need('auditoria'), wrap(req => {
+    if (req.query.pagina === undefined) return db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT ?').all(Math.min(+req.query.limit || 200, 1000));
+    // paginado: ?pagina=1&por=50 -> { itens, total, pagina, paginas, por }
+    const por = Math.min(Math.max(parseInt(req.query.por, 10) || 50, 10), 200);
+    const total = db.prepare('SELECT COUNT(*) FROM audit').pluck().get();
+    const paginas = Math.max(1, Math.ceil(total / por));
+    const pagina = Math.min(Math.max(parseInt(req.query.pagina, 10) || 1, 1), paginas);
+    const itens = db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT ? OFFSET ?').all(por, (pagina - 1) * por);
+    return { itens, total, pagina, paginas, por };
+  }));
 };

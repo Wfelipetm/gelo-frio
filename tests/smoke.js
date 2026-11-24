@@ -294,6 +294,14 @@ const test = async (nome, fn) => { try { await fn(); passed++; console.log('  �
     fail(await sup.get('/api/auditoria'), 403);
   });
 
+  await test('auditoria paginada: total, páginas e limites', async () => {
+    const p = ok(await master.get('/api/auditoria?pagina=1&por=10'));
+    assert.ok(p.total >= p.itens.length && p.itens.length <= 10 && p.paginas >= 1 && p.pagina === 1);
+    const u = ok(await master.get('/api/auditoria?pagina=9999&por=10'));
+    assert.strictEqual(u.pagina, u.paginas, 'página além do fim vira a última');
+    fail(await sup.get('/api/auditoria?pagina=1'), 403);
+  });
+
   await test('usuário desativado perde o acesso na hora; reset de senha exige nova troca', async () => {
     const id = ok(await master.get('/api/usuarios')).find(u => u.username === 'joao').id;
     ok(await master.put(`/api/usuarios/${id}`, { ativo: false }));

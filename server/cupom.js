@@ -13,9 +13,12 @@ const TIPO_OS = { instalacao: 'Instalação', corretiva: 'Manutenção corretiva
 /** Lê as configurações da impressora a partir da tabela settings. */
 function configImpressora(S, extra = {}) {
   const g = k => S.setting(k) || '';
+  // Bematech MP-4200 TH imprime 42 colunas por linha: se a largura ficou no padrão (48), usa 42 para não cortar o texto
+  let colunas = +g('impressora_colunas') || 48;
+  if (colunas === 48 && /mp-?4200/i.test(g('impressora_nome'))) colunas = 42;
   return {
     modo: g('impressora_modo') || 'desligada', nome: g('impressora_nome'), ip: g('impressora_ip'), porta: +g('impressora_porta') || 9100,
-    colunas: +g('impressora_colunas') || 48, codepage: +g('impressora_codepage') || 850, corte: g('impressora_corte') !== '0', gaveta: g('impressora_gaveta') === '1',
+    colunas, codepage: +g('impressora_codepage') || 850, corte: g('impressora_corte') !== '0', gaveta: g('impressora_gaveta') === '1',
     auto: g('impressora_auto') === '1', rodape: g('cupom_rodape'), ...extra,
   };
 }
@@ -103,7 +106,8 @@ function cupomOS(cfg, S, o, itens) {
 function cupomTeste(cfg, S) {
   const c = new Cupom(cfg);
   cabecalho(c, S, 'TESTE DE IMPRESSÃO');
-  c.line(fdt(new Date().toISOString().replace('T', ' ')));
+  const agora = new Date(), p2 = n => String(n).padStart(2, '0'); // hora LOCAL (toISOString daria UTC, 3 h à frente)
+  c.line(fdt(`${agora.getFullYear()}-${p2(agora.getMonth() + 1)}-${p2(agora.getDate())} ${p2(agora.getHours())}:${p2(agora.getMinutes())}`));
   c.hr();
   c.text('Acentuação: áéíóú àâêôç ãõ ÁÉÍÓÚ ÃÕ Ç');
   c.text('Moeda: R$ 1.234,56  ·  12% de desconto');

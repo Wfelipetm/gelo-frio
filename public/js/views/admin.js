@@ -73,6 +73,8 @@ export async function config(root, ctx) {
   $('#pm').onchange = () => { modoUI(); if (['spooler', 'comum'].includes($('#pm').value)) carregarImpressoras(); };
   modoUI(); if (['spooler', 'comum'].includes(c.impressora_modo || '')) carregarImpressoras();
   $('#pr-ref').onclick = carregarImpressoras;
+  // Bematech MP-4200 TH: já deixa a largura certa (42 colunas) ao escolher a impressora
+  $('#pn').onchange = () => { if (/mp-?4200/i.test($('#pn').value)) { const w = $('[name=impressora_colunas]'); if (w.value === '48') { w.value = '42'; toast('Largura ajustada para 42 colunas (Bematech MP-4200 TH). Clique em Salvar impressora.', 'ok'); } } };
   $('#pr-save').onclick = async () => { try { await salvarImpressora(); toast('Impressora salva', 'ok'); } catch (e) { fail(e); } };
   $('#pr-test').onclick = async () => { try { await salvarImpressora(); await imprimirCupom('teste'); } catch (e) { fail(e); } };
 }

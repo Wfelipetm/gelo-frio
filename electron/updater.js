@@ -48,7 +48,7 @@ function iniciarAtualizador(win) {
 
   const checar = () => { if (status.estado !== 'baixando' && status.estado !== 'pronta') updater.checkForUpdates().catch(() => {}); };
   setTimeout(checar, 15000);               // 15 s depois de abrir
-  setInterval(checar, 4 * 60 * 60 * 1000); // e a cada 4 horas
+  setInterval(checar, 30 * 60 * 1000);     // e a cada 30 minutos
 }
 
 module.exports = { iniciarAtualizador };

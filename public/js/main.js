@@ -124,8 +124,8 @@ async function ligarAtualizacao() {
       ocioso: ['refresh-cw', v, 'Verificar agora', ''],
       atual: ['circle-check', v, 'Atualizado', 'ok'],
       checando: ['refresh-cw', v, 'Verificando…', 'gira'],
-      baixando: ['download', `Baixando ${novo}`, `${s.percent || 0}% concluído`, 'gira'],
-      pronta: ['download', `Nova versão ${novo}`, 'Clique para reiniciar e atualizar', 'pronta'],
+      baixando: ['download', `Versão ${novo}`, `Baixando… ${s.percent || 0}%`, 'gira nova'],
+      pronta: ['download', `Versão ${novo}`, 'Clique para atualizar', 'pronta nova'],
       erro: ['refresh-cw', v, 'Sem conexão · tentar de novo', 'erro'],
     };
     const [ic, t, sub, cls] = mapa[s.estado] || mapa.indisponivel;

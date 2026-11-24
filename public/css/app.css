@@ -73,6 +73,12 @@ html.tb .login{min-height:calc(100vh - var(--tb))}
 .side .user .ver.pronta{background:linear-gradient(140deg,#1a5fd0,#2b7cf0);border-color:#4c8be6;box-shadow:0 4px 14px rgba(26,95,208,.45)}
 .ver.pronta b,.ver.pronta .vt small{color:#d6e7ff}.ver.pronta .vt span{color:#fff}.side .user .ver.pronta:hover{background:linear-gradient(140deg,#2268de,#3a88f5)}
 @keyframes fg-gira{to{transform:rotate(360deg)}}
+/* indicador de versão nova: selo "NOVA" pulsando (no menu recolhido vira uma bolinha) */
+.side .user .ver{position:relative}
+.ver.nova::after{content:'NOVA';margin-left:auto;flex-shrink:0;font-size:9.5px;font-weight:800;letter-spacing:.07em;background:#ff8a3d;color:#fff;padding:3px 7px;border-radius:99px;animation:fg-pulsa 1.6s ease-in-out infinite}
+.ver.nova:not(.pronta){border-color:rgba(255,138,61,.55)}
+@keyframes fg-pulsa{0%,100%{box-shadow:0 0 0 0 rgba(255,138,61,.65)}50%{box-shadow:0 0 0 6px rgba(255,138,61,0)}}
+@media(min-width:981px){.side.mini .ver.nova::after{content:'';position:absolute;top:3px;right:8px;width:10px;height:10px;padding:0;margin:0}}
 /* menu recolhido (só no computador; no celular o menu desliza) */
 @media(min-width:981px){
   .side.mini{width:68px;padding-left:10px;padding-right:10px;overflow-x:hidden}

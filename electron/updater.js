@@ -39,16 +39,18 @@ function iniciarAtualizador(win) {
   updater.logger = null;
   set({ estado: 'ocioso' });
 
-  updater.on('checking-for-update', () => set({ estado: 'checando', erro: null }));
+  // verificações automáticas (a cada minuto) são silenciosas: o menu só muda se achar versão nova
+  updater.on('checking-for-update', () => { if (status.estado === 'checando' || status.estado === 'ocioso') set({ estado: 'checando', erro: null }); });
   updater.on('update-available', info => set({ estado: 'baixando', versao: info.version, percent: 0 }));
   updater.on('update-not-available', () => set({ estado: 'atual', versao: null }));
   updater.on('download-progress', p => set({ estado: 'baixando', percent: Math.round(p.percent || 0) }));
   updater.on('update-downloaded', info => set({ estado: 'pronta', versao: info.version, percent: 100 }));
-  updater.on('error', () => { if (status.estado !== 'pronta') set({ estado: 'erro', erro: 'Não foi possível verificar (sem internet?)' }); });
+  updater.on('error', () => { if (status.estado === 'checando') set({ estado: 'erro', erro: 'Não foi possível verificar (sem internet?)' }); });
 
   const checar = () => { if (status.estado !== 'baixando' && status.estado !== 'pronta') updater.checkForUpdates().catch(() => {}); };
   setTimeout(checar, 15000);               // 15 s depois de abrir
-  setInterval(checar, 30 * 60 * 1000);     // e a cada 30 minutos
+  setInterval(checar, 60 * 1000);          // e a cada 1 minuto (só lê o latest.yml, leve): o aviso aparece logo que a versão sai
+  app.on('browser-window-focus', checar);  // e sempre que a janela volta ao foco
 }
 
 module.exports = { iniciarAtualizador };

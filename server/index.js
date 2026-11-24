@@ -60,7 +60,7 @@ function createServer(opts) {
     res.status(500).json({ erro: 'Erro interno: ' + (err.message || err) });
   });
 
-  // Sobe o servidor tentando as próximas portas se a escolhida estiver ocupada
+  // Sobe o servidor tentando as próximas portas se a escolhida estiver ocupada (ou reservada)
   const listen = (port, host) => new Promise((resolve, reject) => {
     let tries = 0;
     const attempt = p => {

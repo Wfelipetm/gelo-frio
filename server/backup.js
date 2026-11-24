@@ -85,8 +85,10 @@ module.exports = (db, opts) => {
     let nivel = 'ok';
     if (!dir) nivel = 'desligado';
     else if (idadeMs == null || idadeMs > LIMITE_DIAS * 86400000) nivel = 'atrasado';
-    return { nivel, pasta: dir, ultimo: ultimo || null, dias, erro, limite_dias: LIMITE_DIAS };
+    return { nivel, pasta: dir, ultimo: ultimo || null, dias, erro, limite_dias: LIMITE_DIAS, aviso_oculto: get('backup_aviso_oculto') === '1' };
   }
+  /** O usuário quer usar só o backup local: esconde a faixa "só neste computador". */
+  const ocultarAviso = () => { set('backup_aviso_oculto', '1'); return status(); };
 
   /** Define (ou, com texto vazio, desliga) a pasta externa. Testa gravação antes de aceitar. */
   function definirPasta(p) {
@@ -102,12 +104,12 @@ module.exports = (db, opts) => {
       const t = path.join(p, `.friogest-teste-${process.pid}`);
       fs.writeFileSync(t, 'ok'); fs.unlinkSync(t);
     } catch (e) { throw bad('Não consegui gravar nessa pasta: ' + msgErro(e)); }
-    set('backup_externo_pasta', p);
+    set('backup_externo_pasta', p); set('backup_aviso_oculto', ''); // configurou: se desligar depois, o aviso volta
     set('backup_externo_ultimo', ''); set('backup_externo_erro', '');
     const copia = criar(false);          // já faz a primeira cópia para a pasta nova
     return { status: status(), copia };
   }
 
-  return { criar, rotina, status, definirPasta, locais, BK };
+  return { criar, rotina, status, definirPasta, ocultarAviso, locais, BK };
 };
 module.exports.BK = BK;

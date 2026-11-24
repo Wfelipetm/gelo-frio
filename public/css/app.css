@@ -102,6 +102,7 @@ html.tb .login{min-height:calc(100vh - var(--tb))}
 .bk-bar{display:flex;align-items:center;gap:10px;justify-content:center;font-size:13px;font-weight:600;padding:8px 16px;text-align:center;flex-wrap:wrap}
 .bk-bar .lu{flex-shrink:0}.bk-bar a{text-decoration:underline;font-weight:700;color:inherit}
 .bk-bar.info{background:var(--azul2);color:#164a9c}.bk-bar .btn{font-size:12px;padding:4px 10px}
+.bk-bar{position:relative}.bk-bar .bk-x{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:inherit;cursor:pointer;opacity:.7}.bk-bar .bk-x:hover{opacity:1;background:rgba(0,0,0,.08)}
 .bk-bar.aviso{background:#fef3c7;color:#92400e}.bk-bar.perigo{background:#fee2e2;color:#991b1b}
 .bk-st{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;font-size:13.5px;margin-bottom:12px}
 .bk-st.ok{background:#dcfce7;color:#166534}.bk-st.aviso{background:#fef3c7;color:#92400e}.bk-st.perigo{background:#fee2e2;color:#991b1b}

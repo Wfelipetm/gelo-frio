@@ -140,6 +140,8 @@ module.exports = (r, ctx) => {
       .sort((a, b) => b.nome.localeCompare(a.nome));
   r.get('/backups', need('backup'), wrap(() => ({ pasta: opts.backupDir, arquivos: listBackups(), externo: ctx.backup.status() })));
   r.get('/backups/status', need('backup'), wrap(() => ctx.backup.status()));
+  // "só quero backup local": esconde a faixa de aviso (volta se a cópia externa for configurada e depois desligada)
+  r.post('/backups/ocultar-aviso', need('backup'), wrap(req => { S.log(req.user, 'backup.aviso_oculto', ''); return ctx.backup.ocultarAviso(); }));
   r.post('/backups', need('backup'), wrap(req => {
     const { arquivo, externo } = ctx.backup.criar(false);
     S.log(req.user, 'backup.criar', arquivo + (externo.ok ? ' (+ cópia externa)' : ''));

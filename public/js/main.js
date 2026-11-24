@@ -165,9 +165,12 @@ async function checarBackupExterno() {
     const s = await api('/backups/status');
     if (!$('#bk-bar')) return;
     const link = '<a href="#/backup">Resolver</a>';
-    el.className = s.nivel === 'ok' ? '' : s.nivel === 'desligado' ? 'bk-bar aviso' : 'bk-bar perigo';
-    el.innerHTML = s.nivel === 'desligado' ? `${icon('triangle-alert', 15)} Seus backups estão só neste computador. Configure a cópia externa (pendrive ou Google Drive). ${link}`
+    const oculto = s.nivel === 'desligado' && s.aviso_oculto;
+    el.className = s.nivel === 'ok' || oculto ? '' : s.nivel === 'desligado' ? 'bk-bar aviso' : 'bk-bar perigo';
+    el.innerHTML = oculto ? '' : s.nivel === 'desligado' ? `${icon('triangle-alert', 15)} Seus backups estão só neste computador. Configure a cópia externa (pendrive ou Google Drive). ${link}<button class="bk-x" id="bk-x" type="button" title="Não quero cópia externa, usar só o backup local" aria-label="Fechar aviso">${icon('x', 15)}</button>`
       : s.nivel === 'atrasado' ? `${icon('triangle-alert', 15)} ${s.ultimo ? `Faz ${s.dias} dia(s) sem cópia de segurança externa.` : 'A cópia de segurança externa ainda não foi feita.'}${s.erro ? ' ' + esc(s.erro) + '.' : ''} ${link}` : '';
+    const x = $('#bk-x');
+    if (x) x.onclick = async () => { try { await api('/backups/ocultar-aviso', { method: 'POST' }); } catch { /* ignora */ } el.className = ''; el.innerHTML = ''; };
   } catch { /* sem permissão ou servidor fora: não incomoda */ }
 }
 window.addEventListener('friogest:backup', checarBackupExterno);

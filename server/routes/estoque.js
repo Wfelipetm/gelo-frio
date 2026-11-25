@@ -97,6 +97,14 @@ module.exports = (r, ctx) => {
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', parseTagValue: false, removeNSPrefix: true });
   const UN = { UN: 'un', UND: 'un', PC: 'un', PÇ: 'un', KG: 'kg', M: 'm', MT: 'm', MTS: 'm', CX: 'un', RL: 'un', RO: 'un', PCT: 'un' };
 
+  // Gás na nota: reconhece pela descrição (GAS/CIL + R410A, R22, R32…) ou pela unidade CIL e tira o peso do cilindro do texto (11,34KG)
+  const detectaGas = pr => {
+    const desc = String(pr.xProd || ''), un = String(pr.uCom || '').toUpperCase();
+    const m = desc.match(/\bR[-\s]?(410A?|407C|404A?|134A|1234\s?YF|600A?|290|22|32|12|502|507)\b/i);
+    if (!m || !(/\b(G[AÁ]S|CIL(INDRO)?)\b/i.test(desc) || /^CIL/.test(un))) return null;
+    const k = desc.match(/(\d+(?:[.,]\d+)?)\s*KG/i);
+    return { gas_tipo: 'R-' + m[1].replace(/\s/g, '').toUpperCase(), cilindro_kg: k ? parseFloat(k[1].replace(',', '.')) : null };
+  };
   r.post('/estoque/nfe/preview', need('estoque.gerir'), wrap(req => {
     let j;
     try { j = parser.parse(String(req.body.xml || '')); } catch { throw bad('Arquivo XML inválido'); }
@@ -109,12 +117,18 @@ module.exports = (r, ctx) => {
       const pr = d.prod || {};
       const ean = /^\d{8,14}$/.test(String(pr.cEAN || '')) ? String(pr.cEAN) : null;
       const custo = r2(parseFloat(pr.vUnCom));
+      const gas = detectaGas(pr);
       let m = db.prepare('SELECT * FROM produtos WHERE ativo=1 AND cod_fabricante IS NOT NULL AND cod_fabricante=?').get(String(pr.cProd || '')) ||
         (ean && db.prepare('SELECT * FROM produtos WHERE ativo=1 AND ean=?').get(ean)) ||
-        db.prepare('SELECT * FROM produtos WHERE ativo=1 AND descricao=? COLLATE NOCASE').get(String(pr.xProd || ''));
+        db.prepare('SELECT * FROM produtos WHERE ativo=1 AND descricao=? COLLATE NOCASE').get(String(pr.xProd || '')) ||
+        (gas && db.prepare('SELECT * FROM produtos WHERE ativo=1 AND gas_tipo=? COLLATE NOCASE ORDER BY id LIMIT 1').get(gas.gas_tipo));
+      let qtd = parseFloat(pr.qCom) || 0, custoItem = custo;
+      const kgCil = (m && m.gas_tipo && m.cilindro_kg) || (gas && gas.cilindro_kg) || null;
+      if (gas && String(pr.uCom || '').toUpperCase() === 'KG' && kgCil) { qtd = Math.round(qtd / kgCil) || 1; custoItem = r2(custo * kgCil); } // nota em kg: converte para nº de cilindros
       return {
-        n: i + 1, descricao_nf: pr.xProd, cod_fabricante: String(pr.cProd || ''), ean, unidade: UN[String(pr.uCom || '').toUpperCase()] || 'un',
-        qtd: parseFloat(pr.qCom) || 0, custo, preco_sugerido: r2(custo * (1 + margem / 100)),
+        n: i + 1, descricao_nf: pr.xProd, cod_fabricante: String(pr.cProd || ''), ean, unidade: gas ? 'kg' : (UN[String(pr.uCom || '').toUpperCase()] || 'un'),
+        gas: gas ? { gas_tipo: gas.gas_tipo, cilindro_kg: kgCil } : null,
+        qtd, custo: custoItem, preco_sugerido: r2((gas && kgCil ? custoItem / kgCil : custoItem) * (1 + margem / 100)),
         produto_id: m?.id ?? null, produto: m ? { id: m.id, descricao: m.descricao, codigo: m.codigo, preco: m.preco, gas_tipo: m.gas_tipo, cilindro_kg: m.cilindro_kg } : null,
       };
     });

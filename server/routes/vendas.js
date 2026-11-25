@@ -33,7 +33,7 @@ module.exports = (r, ctx) => {
   const estornar = (user, v, valor, motivo) => {
     const lanc = db.prepare(`SELECT * FROM lancamentos WHERE origem='venda' AND origem_id=? AND tipo='receber' AND cancelado=0 ORDER BY id LIMIT 1`).get(v.id);
     if (!lanc || valor <= 0) return;
-    if (lanc.pago) S.addLancamento({ tipo: 'pagar', descricao: `Estorno ${motivo} - venda nº ${v.numero}`, valor, pago: 1, forma: lanc.forma, origem: 'venda', origem_id: v.id, cliente_id: v.cliente_id, user_id: user.id });
+    if (lanc.pago) S.addLancamento({ tipo: 'pagar', descricao: `Estorno ${motivo} - venda nº ${v.numero}`, valor, pago: 1, forma: lanc.forma, origem: 'estorno', origem_id: v.id, cliente_id: v.cliente_id, user_id: user.id });
     else if (valor >= lanc.valor - 0.001) db.prepare('UPDATE lancamentos SET cancelado=1 WHERE id=?').run(lanc.id);
     else db.prepare('UPDATE lancamentos SET valor=? WHERE id=?').run(r2(lanc.valor - valor), lanc.id);
   };
@@ -43,9 +43,7 @@ module.exports = (r, ctx) => {
       const p = S.produto(it.produto_id);
       if (p && p.tipo === 'peca') {
         if (p.gas_tipo) {
-          const cil = it.cilindro_id && db.prepare('SELECT ativo FROM cilindros WHERE id=?').get(it.cilindro_id)
-            ? it.cilindro_id : db.prepare('SELECT id FROM cilindros WHERE gas_tipo=? AND ativo=1 ORDER BY id LIMIT 1').pluck().get(p.gas_tipo);
-          if (cil) S.useGas({ cilindro_id: cil, kg: -qtd, origem: 'venda', origem_id: v.id, user_id: user.id, tipoMov: 'estorno', obs: 'Devolução' });
+          S.devolverGas({ gas_tipo: p.gas_tipo, qtd, origem: 'venda', origem_id: v.id, user_id: user.id });
         } else S.moveStock({ produto_id: p.id, qtd, tipo: 'estorno', custo: p.custo, origem: 'venda', origem_id: v.id, user_id: user.id, allowNegative: true });
       }
     }

@@ -19,6 +19,45 @@ module.exports = (r, ctx) => {
       ORDER BY l.pago ASC, l.vencimento ASC, l.id DESC LIMIT 500`).all(...a);
   }));
 
+  // ---------- contas recorrentes: lançam sozinhas uma conta por mês ----------
+  const pad = n => String(n).padStart(2, '0');
+  ctx.gerarRecorrencias = () => {
+    const hoje = new Date(); const ym = hoje.getFullYear() + '-' + pad(hoje.getMonth() + 1); const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+    let n = 0;
+    for (const x of db.prepare('SELECT * FROM recorrencias WHERE ativo=1 AND (ultimo_mes IS NULL OR ultimo_mes<>?)').all(ym)) {
+      db.transaction(() => {
+        S.addLancamento({ tipo: x.tipo, descricao: x.descricao, valor: x.valor, vencimento: ym + '-' + pad(Math.min(x.dia, ultimoDia)), origem: 'recorrente', origem_id: x.id, pessoa: x.pessoa });
+        db.prepare('UPDATE recorrencias SET ultimo_mes=? WHERE id=?').run(ym, x.id); n++;
+      })();
+    }
+    return n;
+  };
+  const recOk = b => {
+    if (!['receber', 'pagar'].includes(b.tipo)) throw bad('Tipo inválido');
+    if (!String(b.descricao || '').trim()) throw bad('Informe a descrição');
+    if (!(Number(b.valor) > 0)) throw bad('Informe o valor');
+    const dia = Math.round(Number(b.dia)); if (!(dia >= 1 && dia <= 31)) throw bad('O dia do mês deve ser de 1 a 31');
+    return { tipo: b.tipo, descricao: String(b.descricao).trim(), valor: r2(b.valor), dia, pessoa: String(b.pessoa || '').trim() || null };
+  };
+  r.get('/recorrencias', need('fin.ver'), wrap(() => db.prepare('SELECT * FROM recorrencias ORDER BY ativo DESC, tipo, descricao').all()));
+  r.post('/recorrencias', need('fin.gerir'), wrap(req => {
+    const v = recOk(req.body);
+    const id = db.prepare('INSERT INTO recorrencias(tipo,descricao,valor,dia,pessoa) VALUES(?,?,?,?,?)').run(v.tipo, v.descricao, v.valor, v.dia, v.pessoa).lastInsertRowid;
+    // o dia deste mês já passou: a primeira conta sai só no mês que vem (não nasce "vencida" por criar a conta fixa no meio do mês)
+    const agora = new Date();
+    if (v.dia < agora.getDate()) db.prepare('UPDATE recorrencias SET ultimo_mes=? WHERE id=?').run(agora.getFullYear() + '-' + pad(agora.getMonth() + 1), id);
+    S.log(req.user, 'financeiro.recorrente', v.tipo + ' ' + v.descricao + ' ' + v.valor + ' dia ' + v.dia);
+    return { id, geradas: ctx.gerarRecorrencias() };
+  }));
+  r.put('/recorrencias/:id', need('fin.gerir'), wrap(req => {
+    const x = db.prepare('SELECT * FROM recorrencias WHERE id=?').get(+req.params.id); if (!x) throw bad('Conta recorrente não encontrada', 404);
+    const v = recOk({ ...x, ...req.body });
+    db.prepare('UPDATE recorrencias SET tipo=?, descricao=?, valor=?, dia=?, pessoa=?, ativo=? WHERE id=?').run(v.tipo, v.descricao, v.valor, v.dia, v.pessoa, req.body.ativo === undefined ? x.ativo : (req.body.ativo ? 1 : 0), x.id);
+    S.log(req.user, 'financeiro.recorrente', 'alterou ' + v.descricao);
+    return { ok: true };
+  }));
+  r.delete('/recorrencias/:id', need('fin.gerir'), wrap(req => { db.prepare('DELETE FROM recorrencias WHERE id=?').run(+req.params.id); S.log(req.user, 'financeiro.recorrente', 'excluiu ' + req.params.id); return { ok: true }; }));
+
   r.post('/lancamentos', need('fin.gerir'), wrap(req => {
     const b = req.body;
     if (!['receber', 'pagar'].includes(b.tipo)) throw bad('Tipo inválido');
@@ -107,6 +146,7 @@ module.exports = (r, ctx) => {
       out.contas = {
         receber_vencidas: db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(valor),0) total FROM lancamentos WHERE tipo='receber' AND pago=0 AND cancelado=0 AND vencimento<date('now','localtime')`).get(),
         pagar_semana: db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(valor),0) total FROM lancamentos WHERE tipo='pagar' AND pago=0 AND cancelado=0 AND vencimento<=date('now','localtime','+7 days')`).get(),
+        proximas: db.prepare(`SELECT id, tipo, descricao, valor, vencimento FROM lancamentos WHERE pago=0 AND cancelado=0 AND vencimento<=date('now','localtime','+7 days') ORDER BY vencimento, id LIMIT 8`).all(),
       };
     }
     return out;
@@ -117,19 +157,30 @@ module.exports = (r, ctx) => {
 
   r.get('/relatorios/vendedores', need('rel.ver'), wrap(req => {
     const { de, ate } = periodo(req);
-    return db.prepare(`SELECT u.id, u.nome, u.comissao_pct, COUNT(v.id) vendas, COALESCE(SUM(v.total-v.devolvido),0) total,
-      ROUND(COALESCE(SUM(v.total-v.devolvido),0)*u.comissao_pct/100,2) comissao
-      FROM users u LEFT JOIN vendas v ON v.vendedor_id=u.id AND v.status='concluida' AND date(v.created_at) BETWEEN ? AND ?
-      WHERE u.ativo=1 GROUP BY u.id HAVING vendas>0 ORDER BY total DESC`).all(de, ate);
+    // vendas do vendedor + OS faturadas do técnico (a data da OS é a do faturamento, a mesma regra do Painel)
+    const rows = db.prepare(`SELECT u.id, u.nome, u.comissao_pct,
+      (SELECT COUNT(*) FROM vendas v WHERE v.vendedor_id=u.id AND v.status='concluida' AND date(v.created_at) BETWEEN @de AND @ate) vendas,
+      (SELECT COALESCE(SUM(v.total-v.devolvido),0) FROM vendas v WHERE v.vendedor_id=u.id AND v.status='concluida' AND date(v.created_at) BETWEEN @de AND @ate) total_vendas,
+      (SELECT COUNT(*) FROM os o WHERE o.tecnico_id=u.id AND o.status='faturada' AND EXISTS (SELECT 1 FROM lancamentos l WHERE l.origem='os' AND l.origem_id=o.id AND l.tipo='receber' AND l.cancelado=0 AND date(l.created_at) BETWEEN @de AND @ate)) os,
+      (SELECT COALESCE(SUM(o.total),0) FROM os o WHERE o.tecnico_id=u.id AND o.status='faturada' AND EXISTS (SELECT 1 FROM lancamentos l WHERE l.origem='os' AND l.origem_id=o.id AND l.tipo='receber' AND l.cancelado=0 AND date(l.created_at) BETWEEN @de AND @ate)) total_os
+      FROM users u WHERE u.ativo=1`).all({ de, ate });
+    return rows.filter(x => x.vendas + x.os > 0).map(x => {
+      const total = r2(x.total_vendas + x.total_os);
+      return { id: x.id, nome: x.nome, comissao_pct: x.comissao_pct, vendas: x.vendas, os: x.os, total_vendas: r2(x.total_vendas), total_os: r2(x.total_os), total, comissao: r2(total * x.comissao_pct / 100) };
+    }).sort((a, b) => b.total - a.total);
   }));
 
   r.get('/relatorios/lucro', need('custo.ver'), wrap(req => {
     const { de, ate } = periodo(req);
-    return db.prepare(`SELECT COALESCE(vi.produto_id,0) produto_id, vi.descricao, SUM(vi.qtd-vi.qtd_devolvida) qtd,
-      ROUND(SUM((vi.qtd-vi.qtd_devolvida)*vi.unitario*(CASE WHEN v.subtotal>0 THEN v.total/v.subtotal ELSE 1 END)),2) receita,
-      ROUND(SUM((vi.qtd-vi.qtd_devolvida)*vi.custo),2) custo
-      FROM venda_itens vi JOIN vendas v ON v.id=vi.venda_id WHERE v.status='concluida' AND date(v.created_at) BETWEEN ? AND ?
-      GROUP BY COALESCE(vi.produto_id,0), vi.descricao ORDER BY receita DESC LIMIT 200`).all(de, ate)
+    // itens das vendas concluídas + itens das OS faturadas (peças e serviços)
+    return db.prepare(`SELECT produto_id, descricao, SUM(qtd) qtd, ROUND(SUM(receita),2) receita, ROUND(SUM(custo),2) custo FROM (
+        SELECT COALESCE(vi.produto_id,0) produto_id, vi.descricao descricao, (vi.qtd-vi.qtd_devolvida) qtd,
+          (vi.qtd-vi.qtd_devolvida)*vi.unitario*(CASE WHEN v.subtotal>0 THEN v.total/v.subtotal ELSE 1 END) receita, (vi.qtd-vi.qtd_devolvida)*vi.custo custo
+        FROM venda_itens vi JOIN vendas v ON v.id=vi.venda_id WHERE v.status='concluida' AND date(v.created_at) BETWEEN @de AND @ate
+        UNION ALL
+        SELECT COALESCE(oi.produto_id,0), oi.descricao, oi.qtd, oi.total, oi.qtd*oi.custo
+        FROM os_itens oi JOIN os o ON o.id=oi.os_id WHERE o.status='faturada' AND EXISTS (SELECT 1 FROM lancamentos l WHERE l.origem='os' AND l.origem_id=o.id AND l.tipo='receber' AND l.cancelado=0 AND date(l.created_at) BETWEEN @de AND @ate)
+      ) GROUP BY produto_id, descricao ORDER BY receita DESC LIMIT 200`).all({ de, ate })
       .map(x => ({ ...x, lucro: r2(x.receita - x.custo) }));
   }));
 

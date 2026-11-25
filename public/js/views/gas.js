@@ -11,7 +11,7 @@ export default async function (root, ctx) {
       { h: 'Saldo', cls: 'r', f: c => `<b>${num(c.saldo_kg)}</b> / ${num(c.capacidade_kg)} kg` }, { h: '', f: c => `<div class="bar2"><i style="width:${Math.min(100, c.saldo_kg / c.capacidade_kg * 100)}%"></i></div>` },
       ...(gerir ? [{ h: '', cls: 'r', f: (c, i) => `<a data-e="${i}">editar</a>` }] : [])], cil, { empty: 'Nenhum cilindro cadastrado.' })}</div>
     <div class="card" style="margin-top:16px"><h3>Últimos usos</h3>${table([{ h: 'Data', f: u => fdt(u.created_at) }, { h: 'Cilindro', f: u => esc(u.cilindro) + ' <span class="muted small">' + esc(u.gas_tipo) + '</span>' },
-      { h: 'Kg', cls: 'r', f: u => `<b class="${u.kg < 0 ? 'up' : ''}">${num(u.kg)}</b>` }, { h: 'Origem', f: u => esc(({ venda: 'Venda', os: 'OS', ajuste: 'Ajuste', entrada: 'Entrada' }[u.origem] || u.origem) + (u.ref_numero ? ' nº ' + u.ref_numero : '')) }, { h: 'Cliente', f: u => esc(u.cliente || '') }, { h: 'Usuário', f: u => esc(u.usuario || '') }], usos, { empty: 'Sem usos ainda.' })}</div>`;
+      { h: 'Kg', cls: 'r', f: u => `<b class="${u.kg < 0 ? 'up' : 'dn'}">${u.kg < 0 ? '+' : '−'}${num(Math.abs(u.kg))}</b>` }, { h: 'Origem', f: u => esc(({ venda: 'Venda', os: 'OS', ajuste: 'Ajuste', entrada: 'Entrada' }[u.origem] || u.origem) + (u.ref_numero ? ' nº ' + u.ref_numero : '')) }, { h: 'Cliente', f: u => esc(u.cliente || '') }, { h: 'Usuário', f: u => esc(u.usuario || '') }], usos, { empty: 'Sem usos ainda.' })}</div>`;
     $$('[data-e]').forEach(a => a.onclick = () => form(cil[+a.dataset.e]));
   };
   const form = c => {

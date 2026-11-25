@@ -410,12 +410,11 @@ const secao = t => { secaoAtual = t; console.log(`\n\u25B6 ${t}`); };
     const g = (await apiGet('/produtos?q=GAS410')).data[0]; eq(Math.round(g.estoque * 10) / 10, 10.3, 'gás após OS');
     const c = (await apiGet('/cilindros')).data[0]; eq(Math.round(c.saldo_kg * 10) / 10, 10.3, 'saldo do cilindro');
   });
-  await passo('OS: fatura gerando lançamento financeiro', async () => {
-    await goto('#/os/' + S.osId); await waitSel('#acts'); await sleep(500); await limparAvisos(); await clickText('Faturar', '#acts', 'button'); await sleep(800);
-    S.dbgFat = await ev(`JSON.stringify({ov:document.querySelectorAll('.ov').length,acts:document.querySelector('#acts').innerText,hash:location.hash,toasts:[...document.querySelectorAll('.toast')].map(t=>t.textContent),dis:[...document.querySelectorAll('#acts button')].map(b=>b.disabled)})`); console.log('      [dbg faturar]', S.dbgFat);
-    await waitSel('.ov [name=forma_pgto]');
-    await setv('.ov [name=forma_pgto]', 'pix'); await modalBtn('Faturar'); await toastOk(/fatur/i);
+  await passo('OS: ao concluir já fatura (caixa "Faturar agora") e gera o lançamento financeiro', async () => {
+    await goto('#/os/' + S.osId); await waitSel('#acts'); await sleep(500);
+    const o = (await apiGet('/os/' + S.osId)).data; eq(o.status, 'faturada', 'status da OS depois de concluir com "Faturar agora"');
     const l = (await apiGet('/lancamentos?tipo=receber&situacao=')).data; ver(l.some(x => x.valor === 440), 'lançamento de R$ 440 não gerado');
+    ver(!(await ev(`[...document.querySelectorAll('#acts button')].some(b=>b.textContent.includes('Faturar'))`)), 'o botão Faturar deveria sumir depois de faturada');
   });
   await passo('OS: PDF de impressão gerado', async () => {
     const r = await ev(`fetch('/print/os/${S.osId}').then(async r=>({s:r.status,t:await r.text()}))`); eq(r.s, 200, 'status'); ver(r.t.includes('ORDEM DE SERVIÇO'), 'PDF da OS');

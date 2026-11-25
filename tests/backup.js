@@ -96,7 +96,35 @@ const t = async (name, fn) => {
     assert.strictEqual((await adm('POST', '/backups')).data.externo.desligado, true);
   });
 
-  srv.close();
+  await t('pasta externa inválida: o erro vem em português e o status já vira "falhou"', async () => {
+    const arq = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'friogest-arq-')), 'eu-sou-um-arquivo');
+    fs.writeFileSync(arq, 'x');
+    const ok = await adm('PUT', '/backups/externo', { pasta: path.join(path.dirname(arq), 'Drive') }); assert.strictEqual(ok.status, 200);
+    fs.rmSync(path.join(path.dirname(arq), 'Drive'), { recursive: true, force: true }); fs.writeFileSync(path.join(path.dirname(arq), 'Drive'), 'agora é um arquivo');
+    const r = await adm('POST', '/backups'); assert.strictEqual(r.data.externo.ok, false); assert.ok(!/ENOTDIR/.test(r.data.externo.erro) && /pasta/.test(r.data.externo.erro), r.data.externo.erro);
+    assert.strictEqual((await adm('GET', '/backups/status')).data.nivel, 'falhou');
+    await adm('PUT', '/backups/externo', { pasta: '' });
+  });
+  await t('RESTAURAR: guarda o estado atual, troca o banco e os dados do backup voltam', async () => {
+    await adm('POST', '/produtos', { tipo: 'peca', descricao: 'Produto ANTES do backup', unidade: 'un', custo: 1, preco: 2 });
+    const nome = (await adm('POST', '/backups')).data.arquivo;
+    await adm('POST', '/produtos', { tipo: 'peca', descricao: 'Produto DEPOIS do backup', unidade: 'un', custo: 1, preco: 2 });
+    const n0 = arquivos(path.join(dir, 'backups')).length;
+    assert.strictEqual((await adm('POST', '/backups/restaurar', { arquivo: '../../etc/passwd' })).status, 400);
+    assert.strictEqual((await adm('POST', '/backups/restaurar', { arquivo: 'friogest_2000-01-01_000000.db' })).status, 404);
+    const r = await adm('POST', '/backups/restaurar', { arquivo: nome });
+    assert.strictEqual(r.status, 200); assert.ok(r.data.seguranca);
+    assert.ok(arquivos(path.join(dir, 'backups')).length >= n0 + 1, 'deveria guardar um backup do estado anterior');
+    // abre o banco restaurado num segundo sistema: tem o produto de antes e não tem o de depois
+    const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'friogest-rest-')); fs.copyFileSync(path.join(dir, 'friogest.db'), path.join(dir2, 'friogest.db'));
+    const srv2 = createServer({ dataDir: dir2, backupDir: path.join(dir2, 'backups'), publicDir: path.join(__dirname, '..', 'public'), readNet: () => ({ lan: false, port: 0 }), writeNet: () => {}, version: 'restaurado' });
+    try {
+      const nomes = srv2.db.prepare('SELECT descricao FROM produtos').pluck().all();
+      assert.ok(nomes.includes('Produto ANTES do backup') && !nomes.includes('Produto DEPOIS do backup'), nomes.join(' | '));
+    } finally { srv2.close(); }
+  });
+
+  try { srv.close(); } catch { /* o banco já foi fechado pela restauração */ }
   console.log(`\n${passed} testes de backup ok`);
   process.exit(process.exitCode || 0);
 })().catch(e => { console.error(e); process.exit(1); });

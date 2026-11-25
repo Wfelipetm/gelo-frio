@@ -31,6 +31,16 @@ jobs:
           node-version: 22
           cache: npm
 
+      # guarda o Electron e as ferramentas do instalador entre uma publicação e outra (o download é a parte mais lenta)
+      - name: Cache do Electron e do electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
       - run: npm ci
 
       - name: Testes

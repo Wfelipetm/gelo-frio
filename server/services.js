@@ -19,12 +19,12 @@ const IMEDIATAS = ['dinheiro', 'pix', 'debito', 'credito'];
 const FORMAS = [...IMEDIATAS, 'boleto', 'fiado'];
 
 const PERMS = ['venda.criar', 'venda.cancelar', 'orc.gerir', 'cliente.ver', 'cliente.gerir', 'estoque.ver', 'estoque.gerir', 'custo.ver',
-  'gas.ver', 'gas.gerir', 'os.ver', 'os.gerir', 'os.propria', 'fin.ver', 'fin.gerir', 'rel.ver', 'backup', 'usuarios', 'config', 'auditoria'];
+  'gas.ver', 'gas.gerir', 'os.ver', 'os.gerir', 'os.propria', 'os.valores', 'fin.ver', 'fin.gerir', 'rel.ver', 'backup', 'usuarios', 'config', 'auditoria'];
 const ROLE_PERMS = {
   master: PERMS,
   supervisor: PERMS.filter(p => !['usuarios', 'config', 'auditoria'].includes(p)),
-  vendedor: ['venda.criar', 'orc.gerir', 'cliente.ver', 'cliente.gerir', 'estoque.ver', 'gas.ver', 'os.ver'],
-  tecnico: ['cliente.ver', 'estoque.ver', 'gas.ver', 'os.ver', 'os.propria'],
+  vendedor: ['venda.criar', 'orc.gerir', 'cliente.ver', 'cliente.gerir', 'estoque.ver', 'gas.ver', 'os.ver', 'os.valores'],
+  tecnico: ['estoque.ver', 'gas.ver', 'os.ver', 'os.propria'], // consulta peça e gás; não vê a lista de clientes nem valores (só a própria OS, que traz o endereço)
 };
 const can = (role, perm) => (ROLE_PERMS[role] || []).includes(perm);
 
@@ -67,6 +67,31 @@ function makeServices(db) {
     const c = db.prepare(`SELECT * FROM cilindros WHERE ativo=1 AND gas_tipo=? AND saldo_kg>=? ORDER BY (local='Loja') DESC, saldo_kg ASC LIMIT 1`).get(gas_tipo, kg);
     if (!c) throw bad(`Nenhum cilindro de ${gas_tipo} com ${kg} kg disponíveis`);
     return c.id;
+  };
+
+  // Plano de consumo: um cilindro que tenha tudo (prioriza o da loja, depois o menor suficiente);
+  // se nenhum tiver, completa com vários (loja primeiro, esvaziando os menores). Devolve [{ id, kg }]
+  S.cilindrosParaGas = (gas_tipo, kg) => {
+    const unico = db.prepare(`SELECT id FROM cilindros WHERE ativo=1 AND gas_tipo=? AND saldo_kg>=? ORDER BY (local='Loja') DESC, saldo_kg ASC LIMIT 1`).get(gas_tipo, kg);
+    if (unico) return [{ id: unico.id, kg }];
+    const todos = db.prepare(`SELECT id, saldo_kg FROM cilindros WHERE ativo=1 AND gas_tipo=? AND saldo_kg>0 ORDER BY (local='Loja') DESC, saldo_kg ASC`).all(gas_tipo);
+    const total = r3(todos.reduce((a, c) => a + c.saldo_kg, 0));
+    if (total < kg) throw bad(`Gás ${gas_tipo} insuficiente: pedido ${kg} kg e só há ${total} kg nos cilindros`);
+    const plano = []; let resta = kg;
+    for (const c of todos) { if (resta <= 0) break; const k = r3(Math.min(c.saldo_kg, resta)); plano.push({ id: c.id, kg: k }); resta = r3(resta - k); }
+    return plano;
+  };
+
+  // Devolução de gás: devolve o kg aos cilindros de onde saiu (o último usado primeiro), sem passar do que saiu de cada um
+  S.devolverGas = ({ gas_tipo, qtd, origem, origem_id, user_id = null, obs = 'Devolução', tipoMov = 'estorno' }) => {
+    const usos = db.prepare(`SELECT g.cilindro_id, ROUND(SUM(g.kg),3) liq FROM gas_usos g JOIN cilindros c ON c.id=g.cilindro_id
+      WHERE g.origem=? AND g.origem_id=? AND c.gas_tipo=? AND c.ativo=1 GROUP BY g.cilindro_id HAVING liq>0 ORDER BY MAX(g.id) DESC`).all(origem, origem_id, gas_tipo);
+    let resta = r3(qtd);
+    for (const u of usos) { if (resta <= 0) break; const k = r3(Math.min(u.liq, resta)); S.useGas({ cilindro_id: u.cilindro_id, kg: -k, origem, origem_id, user_id, tipoMov, obs }); resta = r3(resta - k); }
+    if (resta > 0) { // não achou o rastro (venda antiga): devolve ao primeiro cilindro ativo desse gás
+      const cil = db.prepare('SELECT id FROM cilindros WHERE gas_tipo=? AND ativo=1 ORDER BY id LIMIT 1').pluck().get(gas_tipo);
+      if (cil) S.useGas({ cilindro_id: cil, kg: -resta, origem, origem_id, user_id, tipoMov, obs });
+    }
   };
 
   // Consumo de gás de um cilindro (kg > 0 consome, kg < 0 devolve)
@@ -126,11 +151,15 @@ function makeServices(db) {
       const p = it.produto;
       if (!p || p.tipo !== 'peca') continue;
       if (p.gas_tipo) {
-        const cil = it.cilindro_id || S.autoCilindro(p.gas_tipo, it.qtd);
-        const c = db.prepare('SELECT gas_tipo FROM cilindros WHERE id=?').get(cil);
-        if (!c || c.gas_tipo !== p.gas_tipo) throw bad(`Cilindro incompatível com ${p.descricao}`);
-        S.useGas({ cilindro_id: cil, kg: it.qtd, origem, origem_id, equipamento_id, user_id });
-        it.cilindro_id = cil;
+        if (it.cilindro_id) { // cilindro escolhido à mão: usa só ele
+          const c = db.prepare('SELECT gas_tipo FROM cilindros WHERE id=?').get(it.cilindro_id);
+          if (!c || c.gas_tipo !== p.gas_tipo) throw bad(`Cilindro incompatível com ${p.descricao}`);
+          S.useGas({ cilindro_id: it.cilindro_id, kg: it.qtd, origem, origem_id, equipamento_id, user_id });
+        } else {
+          const plano = S.cilindrosParaGas(p.gas_tipo, it.qtd);
+          for (const x of plano) S.useGas({ cilindro_id: x.id, kg: x.kg, origem, origem_id, equipamento_id, user_id });
+          it.cilindro_id = plano[0].id; // guarda o primeiro usado (os demais ficam no histórico de usos)
+        }
       } else {
         S.moveStock({ produto_id: p.id, qtd: -it.qtd, tipo: 'saida', custo: p.custo, origem, origem_id, user_id });
       }

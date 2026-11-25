@@ -209,7 +209,10 @@ const test = async (nome, fn) => { try { await fn(); passed++; console.log('  �
       itens: [{ produto_id: gas32.id, qtd: 1.2 }, { produto_id: capp.id, qtd: 1 }, { produto_id: mo.id, qtd: 1 }] }));
     osId = o.id;
     const d = ok(await tec.get(`/api/os/${osId}`));
-    assert.strictEqual(d.status, 'agendada'); assert.strictEqual(d.total, 132 + 42 + 180); assert.ok(d.checklist.length >= 5); assert.ok(d.editavel);
+    assert.strictEqual(d.status, 'agendada'); assert.ok(d.checklist.length >= 5); assert.ok(d.editavel);
+    // o técnico vê o que fazer, mas não os preços; o supervisor vê tudo
+    assert.strictEqual(d.total, undefined); assert.ok(d.sem_valores && d.itens.length === 3 && d.itens.every(i => i.unitario === undefined && i.total === undefined));
+    assert.strictEqual(ok(await sup.get(`/api/os/${osId}`)).total, 132 + 42 + 180);
     assert.strictEqual(ok(await vend.get('/api/os')).length >= 1, true);
     fail(await sup.post(`/api/os/${osId}/faturar`, { forma_pgto: 'pix' }), 400, 'concluída');
     const jpeg = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
@@ -338,6 +341,59 @@ const test = async (nome, fn) => { try { await fn(); passed++; console.log('  �
     ok(await master.put(`/api/usuarios/${id}`, { ativo: false }));
     assert.strictEqual((await raw('GET', '/api/me', rm2)).status, 401);
     ok(await master.put(`/api/usuarios/${id}`, { ativo: true }));
+  });
+
+  await test('XML da NF-e reconhece o gás, cria os cilindros e a venda usa mais de um cilindro quando precisa', async () => {
+    const xml = fs.readFileSync(path.join(__dirname, 'sample-nfe.xml'), 'utf8');
+    const pv = ok(await master.post('/api/estoque/nfe/preview', { xml }));
+    const gas = pv.itens.find(i => /R410A/.test(i.descricao_nf));
+    assert.ok(gas && gas.gas && gas.gas.gas_tipo === 'R-410A' && gas.gas.cilindro_kg === 11.34, JSON.stringify(gas && gas.gas));
+    assert.ok(!pv.itens.find(i => /CAPACITOR/.test(i.descricao_nf)).gas, 'capacitor não é gás');
+    assert.strictEqual(gas.unidade, 'kg'); assert.ok(gas.preco_sugerido > 0);
+    // a nota entra: o gás vira cilindros (vincula ao produto de gás que já existe, ou cria um novo com o tipo detectado)
+    const antesC = ok(await master.get('/api/cilindros')).filter(c => c.gas_tipo === 'R-410A').length;
+    const item = gas.produto ? { produto_id: gas.produto.id, qtd: gas.qtd, custo: gas.custo, preco: gas.preco_sugerido }
+      : { novo: { descricao: gas.descricao_nf, cod_fabricante: gas.cod_fabricante, unidade: 'kg', gas_tipo: gas.gas.gas_tipo, cilindro_kg: gas.gas.cilindro_kg }, qtd: gas.qtd, custo: gas.custo, preco: gas.preco_sugerido };
+    ok(await master.post('/api/estoque/entrada', { fornecedor: 'Frio Sul', nf_numero: '48213', parcelas: [], itens: [item] }));
+    assert.strictEqual(ok(await master.get('/api/cilindros')).filter(c => c.gas_tipo === 'R-410A').length, antesC + 2, 'a nota tem 2 cilindros');
+    assert.ok(ok(await master.post('/api/estoque/nfe/preview', { xml })).itens.find(i => /R410A/.test(i.descricao_nf)).produto, 'uma nova leitura vincula ao gás já cadastrado');
+    // venda de gás que precisa de mais de um cilindro (um gás à parte: 3 kg + 4 kg)
+    ok(await master.post('/api/produtos', { tipo: 'peca', descricao: 'Gás R-600A teste', unidade: 'kg', custo: 10, preco: 30, gas_tipo: 'R-600A', cilindro_kg: 5 }));
+    const c1 = ok(await master.post('/api/cilindros', { gas_tipo: 'R-600A', capacidade_kg: 5, saldo_kg: 3, local: 'Loja' })), c2 = ok(await master.post('/api/cilindros', { gas_tipo: 'R-600A', capacidade_kg: 5, saldo_kg: 4, local: 'Depósito' }));
+    const p = ok(await master.get('/api/produtos?q=R-600A')).find(x => x.gas_tipo === 'R-600A');
+    const v = ok(await master.post('/api/vendas', { forma_pgto: 'pix', itens: [{ produto_id: p.id, qtd: 6 }] }));
+    const saldos = async () => ok(await master.get('/api/cilindros')).filter(c => c.gas_tipo === 'R-600A').map(c => c.saldo_kg).sort((x, y) => x - y);
+    assert.deepStrictEqual(await saldos(), [1, 0].sort((x, y) => x - y)); // loja (3) esvazia, depósito (4) fica com 1
+    fail(await master.post('/api/vendas', { forma_pgto: 'pix', itens: [{ produto_id: p.id, qtd: 5 }] }), 400, 'insuficiente');
+    const it = ok(await master.get(`/api/vendas/${v.id}`)).itens[0];
+    ok(await master.post(`/api/vendas/${v.id}/devolver`, { itens: [{ item_id: it.id, qtd: 2 }], motivo: 'teste' }));
+    assert.strictEqual(r2((await saldos()).reduce((x, y) => x + y, 0)), 3); // 7 - 6 + 2 = 3 kg no total
+  });
+
+  await test('relatórios incluem as OS faturadas; recorrentes lançam uma vez por mês; OS fechada não aceita foto; técnico não lista clientes', async () => {
+    const vend2 = ok(await master.get('/api/relatorios/vendedores')); assert.ok(vend2.some(x => x.os >= 1 && x.total_os > 0), JSON.stringify(vend2));
+    assert.ok(ok(await master.get('/api/relatorios/lucro')).some(x => /Capacitor|Gás|Manuten/i.test(x.descricao)));
+    const rec = ok(await master.post('/api/recorrencias', { tipo: 'pagar', descricao: 'Aluguel da loja', valor: 1200, dia: 31, pessoa: 'Imobiliária' }));
+    assert.strictEqual(rec.geradas, 1); ok(await master.get('/api/recorrencias'));
+    // dia que já passou neste mês: a primeira conta só sai no mês que vem (não nasce vencida)
+    const passado = ok(await master.post('/api/recorrencias', { tipo: 'pagar', descricao: 'Internet', valor: 100, dia: 1 }));
+    assert.strictEqual(passado.geradas, new Date().getDate() > 1 ? 0 : 1);
+    const lan = ok(await master.get('/api/lancamentos?tipo=pagar&situacao=')).filter(l => l.origem === 'recorrente' && l.origem_id === rec.id); assert.strictEqual(lan.length, 1);
+    fail(await master.post('/api/recorrencias', { tipo: 'pagar', descricao: 'x', valor: 0, dia: 5 }), 400);
+    fail(await tec.post(`/api/os/${osId}/fotos`, { data: 'data:image/png;base64,iVBORw0KGgo=' }), 400, 'concluída');
+    fail(await tec.get('/api/clientes'), 403);
+    const ficha = await tec.get(`/api/os/${osId}`); assert.strictEqual(ficha.status, 200);
+  });
+
+  await test('OS com endereço do atendimento, instruções e prioridade; impressão do técnico sem preços e do cliente com valores', async () => {
+    const o = ok(await sup.post('/api/os', { cliente_id: cliente.id, tipo: 'instalacao', descricao: 'Instalar split', atend_endereco: 'Rua das Palmeiras, 55', atend_bairro: 'Centro', atend_referencia: 'Ao lado do mercado', atend_contato: 'Dona Rita', atend_telefone: '(21) 97777-0000', instrucoes: 'Levar escada de 3 m', prioridade: 'urgente',
+      itens: [{ descricao: 'Mão de obra de instalação', tipo: 'servico', qtd: 1, unitario: 350 }] }));
+    const d = ok(await sup.get(`/api/os/${o.id}`)); assert.strictEqual(d.atend_endereco, 'Rua das Palmeiras, 55'); assert.strictEqual(d.prioridade, 'urgente'); assert.strictEqual(d.itens[0].unitario, 350);
+    ok(await sup.put(`/api/os/${o.id}`, { atend_complemento: 'Apto 12', prioridade: 'normal' })); assert.strictEqual(ok(await sup.get(`/api/os/${o.id}`)).atend_complemento, 'Apto 12');
+    const html = async (c, q) => (await c.call('GET', `/print/os/${o.id}${q || ''}`, undefined, { raw: true })).text();
+    const tecnico = await html(sup, '?via=tecnico'), cliente_ = await html(sup, '');
+    assert.ok(tecnico.includes('Rua das Palmeiras, 55') && tecnico.includes('Levar escada de 3 m') && tecnico.includes('Dona Rita') && tecnico.includes('Via do técnico'), 'folha do técnico incompleta');
+    assert.ok(!/R\$\s*350/.test(tecnico), 'a folha do técnico não pode ter preços'); assert.ok(/R\$\s*350/.test(cliente_) && cliente_.includes('Via do cliente'), 'a via do cliente tem os valores');
   });
 
   console.log(`\n${passed} testes passaram.`);

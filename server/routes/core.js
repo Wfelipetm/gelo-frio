@@ -20,7 +20,7 @@ module.exports = (r, ctx) => {
 
   // ---------- sessão ----------
   r.post('/login', wrap((req, res) => {
-    const out = A.login(db, req.body.username, req.body.password, req.body.lembrar === true);
+    const out = A.login(db, req.body.username, req.body.password, req.body.lembrar === true, req.ip);
     if (out.erro) throw bad(out.erro, 401);
     res.setHeader('Set-Cookie', out.remember ? [A.cookie(out.token), A.cookieRm(out.remember)] : A.cookie(out.token));
     S.log(out.user, 'login', null);
@@ -140,6 +140,8 @@ module.exports = (r, ctx) => {
       .sort((a, b) => b.nome.localeCompare(a.nome));
   r.get('/backups', need('backup'), wrap(() => ({ pasta: opts.backupDir, arquivos: listBackups(), externo: ctx.backup.status() })));
   r.get('/backups/status', need('backup'), wrap(() => ctx.backup.status()));
+  // restaurar um backup (guarda o estado atual antes; o programa precisa reiniciar em seguida)
+  r.post('/backups/restaurar', need('backup'), wrap(req => ctx.backup.restaurar(String(req.body.arquivo || ''), { aviso: seg => S.log(req.user, 'backup.restaurar', req.body.arquivo + ' (estado anterior guardado em ' + seg + ')') })));
   // "só quero backup local": esconde a faixa de aviso (volta se a cópia externa for configurada e depois desligada)
   r.post('/backups/ocultar-aviso', need('backup'), wrap(req => { S.log(req.user, 'backup.aviso_oculto', ''); return ctx.backup.ocultarAviso(); }));
   r.post('/backups', need('backup'), wrap(req => {

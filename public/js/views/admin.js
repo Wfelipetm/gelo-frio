@@ -96,8 +96,17 @@ export async function backup(root, ctx) {
       <button class="btn p" id="bx-save" type="button">Salvar e copiar agora</button>
       ${x.pasta ? '<button class="btn" id="bx-off" type="button">Desligar</button>' : ''}</div></div>
   <div class="alert info" style="margin-top:14px">Backups automáticos 1x por dia (mantém os últimos 30). Pasta no computador: <b>${esc(r.pasta)}</b></div>
-  <div class="card" style="margin-top:14px">${table([{ h: 'Arquivo', f: b => esc(b.nome) }, { h: 'Data', f: b => fdt(b.data.replace('T', ' ')) }, { h: 'Tamanho', cls: 'r', f: b => (b.tamanho / 1048576).toFixed(2) + ' MB' }, { h: '', cls: 'r', f: b => `<a href="/api/backups/${encodeURIComponent(b.nome)}" download>baixar</a>` }], r.arquivos, { empty: 'Nenhum backup ainda.' })}</div>
-  <div class="card" style="margin-top:14px"><h3>Como restaurar</h3><ol class="small" style="line-height:1.8"><li>Feche o FrioGest.</li><li>Copie o arquivo de backup desejado para a pasta do banco (veja em Configurações).</li><li>Renomeie-o para <b>friogest.db</b>, substituindo o atual (apague os arquivos friogest.db-wal e -shm, se houver).</li><li>Abra o FrioGest.</li></ol></div>`;
+  <div class="card" style="margin-top:14px">${table([{ h: 'Arquivo', f: b => esc(b.nome) }, { h: 'Data', f: b => fdt(b.data.replace('T', ' ')) }, { h: 'Tamanho', cls: 'r', f: b => (b.tamanho / 1048576).toFixed(2) + ' MB' }, { h: '', cls: 'r nowrap', f: (b, i) => `<a href="/api/backups/${encodeURIComponent(b.nome)}" download>baixar</a> · <a data-rs="${i}">restaurar</a>` }], r.arquivos, { empty: 'Nenhum backup ainda.' })}</div>
+  <div class="card" style="margin-top:14px"><h3>Como restaurar</h3><div class="small" style="line-height:1.7">Clique em <b>restaurar</b> na linha do backup escolhido. O sistema guarda um backup do estado de agora (para você poder voltar atrás), troca os dados pelos do backup e <b>reinicia sozinho</b>. Tudo o que foi feito depois da data do backup deixa de aparecer.</div></div>`;
+  $$('[data-rs]').forEach(a => a.onclick = async () => {
+    const b = r.arquivos[+a.dataset.rs];
+    if (!(await confirmBox({ title: 'Restaurar este backup?', msg: `Os dados do sistema voltam para o estado de ${fdt(b.data.replace('T', ' '))} (${b.nome}). Vendas, estoque e lançamentos feitos depois dessa data deixam de aparecer. Antes de trocar, o sistema guarda um backup do estado atual. O programa vai reiniciar.`, ok: 'Restaurar e reiniciar', danger: true }))) return;
+    try {
+      const o = await api('/backups/restaurar', { method: 'POST', body: { arquivo: b.nome } });
+      toast('Backup restaurado. Reiniciando…', 'ok');
+      if (window.friogest?.restart) setTimeout(() => window.friogest.restart(), 800); else document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px"><h2>Backup restaurado</h2><p>Feche o FrioGest e abra de novo para continuar. O estado anterior foi guardado em <b>' + esc(o.seguranca) + '</b>.</p></div>';
+    } catch (e) { fail(e); }
+  });
   const avisar = () => window.dispatchEvent(new Event('friogest:backup'));
   $('#nb').onclick = async () => {
     try {

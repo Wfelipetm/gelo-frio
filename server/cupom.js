@@ -87,17 +87,24 @@ function cupomOrcamento(cfg, S, o, itens) {
   return c.bytes();
 }
 
-function cupomOS(cfg, S, o, itens) {
+function cupomOS(cfg, S, o, itens, { semValores = false } = {}) {
   const c = new Cupom(cfg);
   cabecalho(c, S, `ORDEM DE SERVIÇO Nº ${o.numero}`);
   c.line(`${TIPO_OS[o.tipo] || o.tipo}  ·  ${fdate(o.created_at)}`);
+  if (o.prioridade === 'urgente') c.bold(true).line('*** URGENTE ***').bold(false);
+  if (o.agendada_para) c.text('Agendada: ' + fdt(String(o.agendada_para).replace('T', ' ')));
   c.text(`Cliente: ${o.cliente}`);
   if (o.cliente_tel) c.line('Tel.: ' + o.cliente_tel);
-  if (o.cliente_end) c.text('End.: ' + o.cliente_end);
+  const end = [o.atend_endereco || o.cliente_end, o.atend_bairro, o.atend_complemento].filter(Boolean).join(' - ');
+  if (end) c.text('End.: ' + end);
+  if (o.atend_referencia) c.text('Ref.: ' + o.atend_referencia);
+  if (o.atend_contato || o.atend_telefone) c.text('No local: ' + [o.atend_contato, o.atend_telefone].filter(Boolean).join(' - '));
   if (o.tecnico) c.text('Técnico: ' + o.tecnico);
   if (o.eq_marca) c.text(`Equip.: ${o.eq_marca} ${o.eq_modelo || ''} ${o.eq_btus ? o.eq_btus + ' BTUs' : ''}`.replace(/\s+/g, ' ').trim());
   if (o.descricao) { c.hr(); c.text('Solicitação: ' + o.descricao); }
-  if (itens.length) { c.hr(); itensVenda(c, itens); c.hr(); c.bold(true).size(1, 2).lr('TOTAL', money(o.total)).normal(); }
+  if (o.instrucoes) { c.hr(); c.text('Instruções: ' + o.instrucoes); }
+  if (itens.length && semValores) { c.hr(); itens.forEach((i, n) => c.text(`${String(n + 1).padStart(2, '0')} ${i.descricao}  ${qtdf(i.qtd)} ${i.unidade || ''}`)); }
+  else if (itens.length) { c.hr(); itensVenda(c, itens); c.hr(); c.bold(true).size(1, 2).lr('TOTAL', money(o.total)).normal(); }
   if (o.laudo) { c.hr(); c.text('Laudo: ' + o.laudo); }
   rodape(c, cfg);
   return c.bytes();

@@ -68,7 +68,9 @@ function createServer(opts) {
       server.once('listening', () => {
         state.port = p; state.host = host;
         backupDoDia();
-        const t = setInterval(backupDoDia, 3600 * 1000); t.unref();
+        const contasDoMes = () => { try { ctx.gerarRecorrencias && ctx.gerarRecorrencias(); } catch (e) { console.error('Contas recorrentes:', e.message); } };
+        contasDoMes(); // lança as contas fixas do mês (aluguel, luz…) ao abrir e a cada hora
+        const t = setInterval(() => { backupDoDia(); contasDoMes(); }, 3600 * 1000); t.unref();
         resolve({ server, port: p, host });
       });
       server.once('error', e => {

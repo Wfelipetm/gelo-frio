@@ -258,3 +258,7 @@ a .lu{vertical-align:-3px}
 .tour-btns{display:flex;gap:8px;align-items:center}.tour-btns .grow{flex:1}
 /* paginação (auditoria) */
 .pager{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 4px 4px;border-top:1px solid var(--linha);margin-top:6px}.pager .sp{flex:1}.pager .btn:disabled{opacity:.45;cursor:default}
+/* OS do técnico: sem a coluna de valores */
+.sv th:nth-child(3),.sv th:nth-child(4),.sv td:nth-child(3),.sv td:nth-child(4){display:none}
+/* WhatsApp: ícone no lugar do texto */
+.wa-ic{display:inline-flex;vertical-align:middle;color:#16a34a;cursor:pointer;margin-left:6px}.wa-ic:hover{color:#15803d}

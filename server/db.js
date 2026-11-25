@@ -115,6 +115,19 @@ function open(dataDir) {
     db.exec(SCHEMA);
     db.pragma('user_version = 1');
   }
+  if (db.pragma('user_version', { simple: true }) < 2) { // v2: folha de serviço da OS (endereço do atendimento, instruções, prioridade)
+    for (const c of ['atend_endereco', 'atend_bairro', 'atend_complemento', 'atend_referencia', 'atend_contato', 'atend_telefone', 'instrucoes']) {
+      try { db.exec('ALTER TABLE os ADD COLUMN ' + c + ' TEXT'); } catch { /* já existe */ }
+    }
+    try { db.exec("ALTER TABLE os ADD COLUMN prioridade TEXT NOT NULL DEFAULT 'normal'"); } catch { /* já existe */ }
+    db.pragma('user_version = 2');
+  }
+  if (db.pragma('user_version', { simple: true }) < 3) { // v3: contas recorrentes (aluguel, luz, internet…)
+    db.exec(`CREATE TABLE IF NOT EXISTS recorrencias(
+      id INTEGER PRIMARY KEY, tipo TEXT NOT NULL DEFAULT 'pagar', descricao TEXT NOT NULL, valor REAL NOT NULL, dia INTEGER NOT NULL DEFAULT 5,
+      pessoa TEXT, ativo INTEGER NOT NULL DEFAULT 1, ultimo_mes TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')))`);
+    db.pragma('user_version = 3');
+  }
   const ins = db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) ins.run(k, v);
   if (!db.prepare('SELECT 1 FROM users LIMIT 1').get()) {

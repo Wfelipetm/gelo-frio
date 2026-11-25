@@ -29,6 +29,10 @@ module.exports = (db, opts) => {
     if (c === 'ENOENT') return 'A pasta ou a unidade não foi encontrada (pendrive desconectado ou Drive fechado?)';
     if (c === 'EACCES' || c === 'EPERM') return 'Sem permissão para gravar nessa pasta';
     if (c === 'ENOSPC') return 'Sem espaço livre no destino';
+    if (c === 'ENOTDIR' || c === 'EEXIST') return 'O caminho informado não é uma pasta (já existe um arquivo com esse nome)';
+    if (c === 'EBUSY' || c === 'EMFILE') return 'O destino está em uso por outro programa. Tente de novo em instantes';
+    if (c === 'EROFS') return 'O destino é somente leitura (pendrive protegido contra gravação?)';
+    if (c === 'ENAMETOOLONG' || c === 'EINVAL') return 'O nome ou o caminho da pasta é inválido';
     return String((e && e.message) || e);
   };
 
@@ -85,6 +89,7 @@ module.exports = (db, opts) => {
     let nivel = 'ok';
     if (!dir) nivel = 'desligado';
     else if (idadeMs == null || idadeMs > LIMITE_DIAS * 86400000) nivel = 'atrasado';
+    else if (erro) nivel = 'falhou';           // a última tentativa falhou (ainda há cópia recente): avisa já, sem esperar 2 dias
     return { nivel, pasta: dir, ultimo: ultimo || null, dias, erro, limite_dias: LIMITE_DIAS, aviso_oculto: get('backup_aviso_oculto') === '1' };
   }
   /** O usuário quer usar só o backup local: esconde a faixa "só neste computador". */
@@ -110,6 +115,28 @@ module.exports = (db, opts) => {
     return { status: status(), copia };
   }
 
-  return { criar, rotina, status, definirPasta, ocultarAviso, locais, BK };
+  /** Restaura um backup local: valida o arquivo, guarda o estado atual num backup novo e troca o banco.
+   *  Depois disso o banco fica fechado: o programa precisa reiniciar. */
+  function restaurar(nome, { aviso } = {}) {
+    if (!BK.test(String(nome || ''))) throw bad('Backup inválido');
+    const origem = path.join(opts.backupDir, nome);
+    if (!fs.existsSync(origem)) throw bad('Backup não encontrado', 404);
+    const Database = require('better-sqlite3');
+    let t;
+    try {
+      t = new Database(origem, { readonly: true, fileMustExist: true });
+      if (t.pragma('integrity_check', { simple: true }) !== 'ok') throw bad('O arquivo de backup está danificado e não pode ser restaurado');
+      t.prepare('SELECT COUNT(*) FROM users').pluck().get(); t.prepare('SELECT COUNT(*) FROM produtos').pluck().get();
+    } catch (e) { throw e && e.status ? e : bad('Este arquivo não parece um backup do FrioGest'); } finally { try { t && t.close(); } catch { /* ignora */ } }
+    const seguranca = criar(false).arquivo;       // o estado de agora fica guardado, caso o dono se arrependa
+    if (aviso) aviso(seguranca);                   // registra na auditoria ANTES de fechar o banco
+    const dest = path.join(opts.dataDir, 'friogest.db');
+    db.close();
+    for (const ext of ['-wal', '-shm']) { try { fs.rmSync(dest + ext, { force: true }); } catch { /* ignora */ } }
+    fs.copyFileSync(origem, dest);
+    return { ok: true, seguranca, restaurado: nome };
+  }
+
+  return { criar, rotina, status, definirPasta, ocultarAviso, restaurar, locais, BK };
 };
 module.exports.BK = BK;

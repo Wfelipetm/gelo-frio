@@ -98,28 +98,5 @@ module.exports = (r, ctx) => {
     res.type('html').send(page(`Etiqueta venda ${v.numero}`, body, req.query.print));
   });
 
-  const TIPO_OS = { instalacao: 'Instalação', corretiva: 'Manutenção corretiva', preventiva: 'Manutenção preventiva / limpeza', visita: 'Visita técnica', outro: 'Outro' };
-  r.get('/os/:id', (req, res) => {
-    if (!guard(req, res)) return;
-    const o = db.prepare(`SELECT o.*, c.nome cliente, c.doc cliente_doc, c.telefone cliente_tel, c.endereco cliente_end, u.nome tecnico, e.marca eq_marca, e.modelo eq_modelo, e.btus eq_btus, e.serie eq_serie, e.garantia_ate eq_garantia
-      FROM os o JOIN clientes c ON c.id=o.cliente_id LEFT JOIN users u ON u.id=o.tecnico_id LEFT JOIN equipamentos e ON e.id=o.equipamento_id WHERE o.id=?`).get(+req.params.id);
-    if (!o) return res.status(404).send('OS não encontrada');
-    if (!can(req.user.role, 'os.gerir') && can(req.user.role, 'os.propria') && o.tecnico_id !== req.user.id) return res.status(403).send('Sem permissão');
-    const itens = db.prepare('SELECT * FROM os_itens WHERE os_id=? ORDER BY id').all(o.id);
-    const chk = o.checklist ? JSON.parse(o.checklist) : [];
-    const fotos = db.prepare('SELECT id, legenda, mime, data FROM os_fotos WHERE os_id=? ORDER BY id').all(o.id);
-    const body = `${loja()}<div class="tit"><h2>ORDEM DE SERVIÇO Nº ${o.numero}</h2><div>${esc(TIPO_OS[o.tipo] || o.tipo)}</div><div>Aberta em ${fdate(o.created_at)}${o.concluida_em ? ' · concluída em ' + fdate(o.concluida_em) : ''}</div></div></div>
-      <div class="box"><div class="grid"><div><b>Cliente:</b> ${esc(o.cliente)}</div><div><b>Telefone:</b> ${esc(o.cliente_tel || '-')}</div>
-      <div><b>Endereço:</b> ${esc(o.cliente_end || '-')}</div><div><b>Técnico:</b> ${esc(o.tecnico || '-')}</div>
-      <div><b>Equipamento:</b> ${o.eq_marca ? esc(`${o.eq_marca} ${o.eq_modelo || ''} ${o.eq_btus ? o.eq_btus + ' BTUs' : ''}`) : '-'}</div><div><b>Nº de série:</b> ${esc(o.eq_serie || '-')}${o.eq_garantia ? ' · garantia até ' + fdate(o.eq_garantia) : ''}</div></div></div>
-      ${o.descricao ? `<div class="box"><b>Solicitação / defeito relatado:</b><br>${nl(o.descricao)}</div>` : ''}
-      ${chk.length ? `<b>Checklist</b><div class="chk">${chk.map(c => `<div>${c.ok ? CHK_ON : CHK_OFF} ${esc(c.t)}</div>`).join('')}</div>` : ''}
-      ${itens.length ? `<table><tr><th>Peças e serviços</th><th class="r">Qtd</th><th class="r">Unitário</th><th class="r">Total</th></tr>
-      ${itens.map(i => `<tr><td>${esc(i.descricao)}</td><td class="r">${qtdf(i.qtd)} ${esc(i.unidade || '')}</td><td class="r">${brl(i.unitario)}</td><td class="r">${brl(i.total)}</td></tr>`).join('')}</table>
-      <div class="tot"><div class="g"><span>TOTAL</span><span>${brl(o.total)}</span></div></div>` : ''}
-      ${o.laudo ? `<div class="box"><b>Laudo / observações do técnico:</b><br>${nl(o.laudo)}</div>` : ''}
-      ${fotos.length ? `<b>Fotos</b><div class="fotos">${fotos.map(f => `<div><img src="data:${f.mime};base64,${f.data.toString('base64')}"><span>${esc(f.legenda || '')}</span></div>`).join('')}</div>` : ''}
-      <div class="ass"><div>${esc(o.tecnico || 'Técnico')}</div><div>${o.assinatura ? `<img src="${esc(o.assinatura)}" style="max-height:50px;display:block;margin:-54px auto 4px">` : ''}${esc(o.assinatura_nome || 'Cliente')}</div></div>`;
-    res.type('html').send(page(`OS ${o.numero}`, body, req.query.print));
-  });
+  require('./print-os')(r, { db, S, esc, fdate, fdt, nl, qtdf, loja, page, guard, can, brl, CHK_ON, CHK_OFF });
 };

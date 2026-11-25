@@ -14,17 +14,18 @@ export default async function (root, ctx) {
 // ---------------- produtos ----------------
 async function produtos(el) {
   let filtro = ''; const custo = state.can('custo.ver'); const gerir = state.can('estoque.gerir');
-  el.innerHTML = `<div class="bar"><input class="q" type="search" id="q" placeholder="Descrição, código, código de fábrica ou código de barras"><div class="chips" id="fc">${[['', 'Todos'], ['peca', 'Peças'], ['servico', 'Serviços'], ['baixo', 'Abaixo do mínimo']].map(([k, v]) => `<span class="chip ${k === '' ? 'on' : ''}" data-f="${k}">${v}</span>`).join('')}</div>
+  el.innerHTML = `<div class="bar"><input class="q" type="search" id="q" placeholder="Descrição, código, código de fábrica ou código de barras"><div class="chips" id="fc">${[['', 'Todos'], ['peca', 'Peças'], ['servico', 'Serviços'], ['baixo', 'Abaixo do mínimo'], ...(gerir ? [['inativos', 'Inativos']] : [])].map(([k, v]) => `<span class="chip ${k === '' ? 'on' : ''}" data-f="${k}">${v}</span>`).join('')}</div>
     ${custo ? '<button class="btn sm" id="exp">Exportar CSV</button>' : ''}</div><div class="card" id="list"></div>`;
   let rows = [];
   const load = async () => {
     const qs = `q=${encodeURIComponent($('#q').value)}&limit=1000${filtro === 'baixo' ? '&baixo=1' : filtro ? '&tipo=' + filtro : ''}`;
-    rows = await api('/produtos?' + qs);
+    rows = filtro === 'inativos' ? (await api(`/produtos?todos=1&limit=1000&q=${encodeURIComponent($('#q').value)}`)).filter(p => p.ativo === 0) : await api('/produtos?' + qs);
     $('#list').innerHTML = table([
       { h: 'Código', f: p => esc(p.codigo || '') }, { h: 'Descrição', f: p => `<b>${esc(p.descricao)}</b>${p.gas_tipo ? ` <span class="tag t-az">${esc(p.gas_tipo)}</span>` : ''}${p.tipo === 'servico' ? ' <span class="tag t-vd">serviço</span>' : ''}${p.cod_fabricante ? `<div class="muted small">fab. ${esc(p.cod_fabricante)}</div>` : ''}` },
       { h: 'Estoque', cls: 'r', f: p => p.tipo === 'servico' ? '<span class="muted">—</span>' : `<span class="${p.minimo > 0 && p.estoque <= p.minimo ? 'tag t-vm' : ''}">${num(p.estoque)} ${esc(p.unidade)}</span>` },
       { h: 'Mín.', cls: 'r', f: p => p.tipo === 'servico' ? '' : num(p.minimo) }, ...(custo ? [{ h: 'Custo', cls: 'r', f: p => brl(p.custo) }] : []), { h: 'Preço', cls: 'r', f: p => `<b>${brl(p.preco)}</b>` },
-      { h: '', cls: 'r nowrap', f: (p, i) => `<a data-hist="${i}">histórico</a>${gerir ? ` · <a data-edit="${i}">editar</a>${p.tipo === 'peca' && !p.gas_tipo ? ` · <a data-adj="${i}">ajustar</a>` : ''}` : ''}` }], rows, { empty: 'Nenhum produto encontrado.' });
+      { h: '', cls: 'r nowrap', f: (p, i) => p.ativo === 0 ? `<a data-hist="${i}">histórico</a>${gerir ? ` · <a data-react="${i}">reativar</a>` : ''}` : `<a data-hist="${i}">histórico</a>${gerir ? ` · <a data-edit="${i}">editar</a>${p.tipo === 'peca' && !p.gas_tipo ? ` · <a data-adj="${i}">ajustar</a>` : ''}` : ''}` }], rows, { empty: filtro === 'inativos' ? 'Nenhum produto inativo.' : 'Nenhum produto encontrado.' });
+    $$('[data-react]').forEach(a => a.onclick = async () => { const p = rows[+a.dataset.react]; try { await api('/produtos/' + p.id, { method: 'PUT', body: { ...p, ativo: 1 } }); toast('Produto reativado', 'ok'); load().catch(fail); } catch (e) { fail(e); } });
     $$('[data-edit]').forEach(a => a.onclick = () => produtoModal(rows[+a.dataset.edit], load));
     $$('[data-adj]').forEach(a => a.onclick = () => ajusteModal(rows[+a.dataset.adj], load));
     $$('[data-hist]').forEach(a => a.onclick = () => historico(rows[+a.dataset.hist]));
@@ -96,11 +97,11 @@ async function entrada(el, ctx) {
     try {
       const pv = await api('/estoque/nfe/preview', { method: 'POST', body: { xml: await file.text() } });
       Object.assign(E, { fornecedor: pv.fornecedor, nf_numero: pv.nf_numero, chave: pv.chave, parcelas: pv.parcelas, gerarPagar: pv.parcelas.length > 0, jaLancada: pv.ja_lancada, emissao: pv.emissao,
-        itens: pv.itens.map(i => ({ produto: i.produto, novo: i.produto ? null : { descricao: i.descricao_nf, cod_fabricante: i.cod_fabricante, ean: i.ean, unidade: i.unidade, minimo: 0 }, descricao_nf: i.descricao_nf, qtd: i.qtd, custo: i.custo, preco: i.produto ? i.produto.preco : i.preco_sugerido, unidade: i.unidade })) });
+        itens: pv.itens.map(i => ({ produto: i.produto, novo: i.produto ? null : { descricao: i.descricao_nf, cod_fabricante: i.cod_fabricante, ean: i.ean, unidade: i.unidade, minimo: 0, ...(i.gas ? { gas_tipo: i.gas.gas_tipo, cilindro_kg: i.gas.cilindro_kg } : {}) }, descricao_nf: i.descricao_nf, qtd: i.qtd, custo: i.custo, preco: i.produto ? i.produto.preco : i.preco_sugerido, unidade: i.unidade })) });
       draw();
     } catch (err) { fail(err); } finally { e.target.value = ''; }
   };
-  $('#manual').onclick = () => { Object.assign(E, { fornecedor: '', nf_numero: '', chave: '', itens: [], parcelas: [], gerarPagar: false, jaLancada: false }); draw(true); };
+  $('#manual').onclick = () => { Object.assign(E, { fornecedor: '', nf_numero: '', chave: '', itens: [], parcelas: [], gerarPagar: true, jaLancada: false, semParcela: false }); draw(true); };
 
   function draw(manual) {
     const f = $('#form');
@@ -110,26 +111,30 @@ async function entrada(el, ctx) {
       ${manual ? '<div class="bigsearch" style="margin-bottom:12px"><input id="busca" placeholder="Adicionar produto à entrada…" autocomplete="off"></div>' : ''}
       <div class="tblwrap"><table><thead><tr><th>Produto</th><th>Vínculo no sistema</th><th class="r">Qtd</th><th class="r">Custo unit.</th><th class="r">Preço de venda</th><th></th></tr></thead><tbody>${E.itens.map((i, n) => `<tr>
         <td>${esc(i.descricao_nf || i.produto?.descricao || '')}</td>
-        <td>${i.produto ? `<span class="tag t-vd">Vinculado</span> ${esc(i.produto.descricao)}${i.produto.gas_tipo ? ` <span class="muted small">(qtd = nº de cilindros)</span>` : ''}` : `<span class="tag t-lj">Novo produto</span> <a data-link="${n}">vincular a um existente</a>`}</td>
+        <td>${i.produto ? `<span class="tag t-vd">Vinculado</span> ${esc(i.produto.descricao)}${i.produto.gas_tipo ? ` <span class="muted small">(qtd = nº de cilindros)</span>` : ''}` : `<span class="tag t-lj">Novo produto</span>${i.novo?.gas_tipo ? ` <span class="tag t-az">Gás ${esc(i.novo.gas_tipo)}${i.novo.cilindro_kg ? ' · cilindro ' + num(i.novo.cilindro_kg) + ' kg' : ' · informe o peso do cilindro'}</span>` : ''} <a data-link="${n}">vincular a um existente</a>`}</td>
         <td class="r"><input type="number" step="any" min="0" data-q="${n}" value="${i.qtd}" style="width:80px;text-align:right"></td>
         <td class="r"><input type="number" step="0.01" min="0" data-c="${n}" value="${i.custo}" style="width:96px;text-align:right"></td>
         <td class="r"><input type="number" step="0.01" min="0" data-p="${n}" value="${i.preco}" style="width:96px;text-align:right"></td><td><a data-del="${n}">${icon('x')}</a></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nenhum item.</td></tr>'}</tbody></table></div>
       <div style="margin-top:14px" class="row"><div class="grow"><label class="f"><span><input type="checkbox" id="gp" ${E.gerarPagar ? 'checked' : ''}> Lançar contas a pagar</span></label><div id="parc" style="margin-top:8px"></div></div></div>
       <div class="bar" style="margin:16px 0 0;justify-content:flex-end"><button class="btn" id="cancel">Cancelar</button><button class="btn v lg" id="confirm">${icon('check')} Confirmar entrada no estoque</button></div></div>`;
+    const syncAuto = () => { if (E.parcelas.length === 1 && E.parcelas[0].auto) { E.parcelas[0].valor = custoTotal(); const i = $('[data-pv="0"]'); if (i) i.value = E.parcelas[0].valor; } };
     const novos = E.itens.filter(i => !i.produto).length;
     if (novos) f.querySelector('.card').insertAdjacentHTML('afterbegin', `<div class="alert info">${novos} item(ns) ainda não existem no seu cadastro e serão <b>criados como novos produtos</b>. Confira o preço de venda sugerido (margem de ${margem}%).</div>`);
     $('#forn').oninput = e => { E.fornecedor = e.target.value; }; $('#nf').oninput = e => { E.nf_numero = e.target.value; };
-    $$('[data-q]').forEach(x => x.oninput = () => { E.itens[+x.dataset.q].qtd = parseFloat(x.value) || 0; $('#ct').textContent = brl(custoTotal()); });
-    $$('[data-c]').forEach(x => x.oninput = () => { E.itens[+x.dataset.c].custo = parseFloat(x.value) || 0; $('#ct').textContent = brl(custoTotal()); });
+    $$('[data-q]').forEach(x => x.oninput = () => { E.itens[+x.dataset.q].qtd = parseFloat(x.value) || 0; $('#ct').textContent = brl(custoTotal()); syncAuto(); });
+    $$('[data-c]').forEach(x => x.oninput = () => { E.itens[+x.dataset.c].custo = parseFloat(x.value) || 0; $('#ct').textContent = brl(custoTotal()); syncAuto(); });
     $$('[data-p]').forEach(x => x.oninput = () => { E.itens[+x.dataset.p].preco = parseFloat(x.value) || 0; });
     $$('[data-del]').forEach(x => x.onclick = () => { E.itens.splice(+x.dataset.del, 1); draw(manual); });
     $$('[data-link]').forEach(x => x.onclick = () => vincular(E.itens[+x.dataset.link], () => draw(manual)));
     if (manual) attachPicker($('#busca'), { search: productSearch('&tipo=peca'), render: productRow, onPick: p => { E.itens.push({ produto: p, descricao_nf: '', qtd: 1, custo: p.custo || 0, preco: p.preco, unidade: p.unidade }); draw(manual); } });
     const drawParc = () => {
+      // entrada manual: já vem uma parcela do valor total, para daqui a 30 dias (o valor acompanha a quantidade e o custo enquanto não for editado)
+      if (manual && E.gerarPagar && !E.parcelas.length && !E.semParcela) E.parcelas.push({ vencimento: todayStr(30), valor: custoTotal(), auto: true });
+      if (E.parcelas.length === 1 && E.parcelas[0].auto) E.parcelas[0].valor = custoTotal();
       $('#gp').onchange = e => { E.gerarPagar = e.target.checked; drawParc(); };
       $('#parc').innerHTML = E.gerarPagar ? `${E.parcelas.map((p, n) => `<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center"><span class="muted small" style="width:60px">Parcela ${n + 1}</span><input type="date" data-pd="${n}" value="${esc(p.vencimento)}" style="width:160px"><input type="number" step="0.01" data-pv="${n}" value="${p.valor}" style="width:130px"><a data-pdel="${n}">${icon('x')}</a></div>`).join('')}<a id="addp">${icon('plus')} adicionar parcela</a>` : '';
-      $$('[data-pd]').forEach(x => x.onchange = () => { E.parcelas[+x.dataset.pd].vencimento = x.value; }); $$('[data-pv]').forEach(x => x.oninput = () => { E.parcelas[+x.dataset.pv].valor = parseFloat(x.value) || 0; });
-      $$('[data-pdel]').forEach(x => x.onclick = () => { E.parcelas.splice(+x.dataset.pdel, 1); drawParc(); });
+      $$('[data-pd]').forEach(x => x.onchange = () => { E.parcelas[+x.dataset.pd].vencimento = x.value; }); $$('[data-pv]').forEach(x => x.oninput = () => { E.parcelas[+x.dataset.pv].valor = parseFloat(x.value) || 0; E.parcelas[+x.dataset.pv].auto = false; });
+      $$('[data-pdel]').forEach(x => x.onclick = () => { E.parcelas.splice(+x.dataset.pdel, 1); if (!E.parcelas.length) E.semParcela = true; drawParc(); });
       if ($('#addp')) $('#addp').onclick = () => { E.parcelas.push({ vencimento: todayStr(30), valor: E.parcelas.length ? 0 : custoTotal() }); drawParc(); };
     };
     drawParc();

@@ -43,7 +43,7 @@ module.exports = (r, ctx) => {
       if (!o) throw bad('OS não encontrada', 404);
       if (!can(user.role, 'os.gerir') && can(user.role, 'os.propria') && o.tecnico_id !== user.id) throw bad('Sem permissão', 403);
       const itens = db.prepare('SELECT * FROM os_itens WHERE os_id=? ORDER BY id').all(o.id);
-      return { bytes: C.cupomOS(c, S, o, itens), log: ['impressao.os', `OS ${o.numero}`] };
+      return { bytes: C.cupomOS(c, S, o, itens, { semValores: !can(user.role, 'os.valores') }), log: ['impressao.os', `OS ${o.numero}`] };
     }
     throw bad('Tipo de cupom inválido', 400);
   };

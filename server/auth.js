@@ -67,15 +67,17 @@ function need(perm, { allowMust = false } = {}) {
   };
 }
 
-function login(db, username, password, lembrar = false) {
-  const key = String(username || '').toLowerCase();
+// Bloqueio por usuário E origem (IP): quem erra a senha a partir de um computador não trava o mesmo usuário em outro.
+// A cada bloqueio o tempo dobra (1, 2, 4… até 15 minutos).
+function login(db, username, password, lembrar = false, ip = '') {
+  const key = String(ip || '') + '|' + String(username || '').toLowerCase();
   const a = attempts.get(key);
-  if (a && a.until > Date.now()) return { erro: 'Muitas tentativas. Aguarde 1 minuto.' };
+  if (a && a.until > Date.now()) { const min = Math.max(1, Math.ceil((a.until - Date.now()) / 60000)); return { erro: `Muitas tentativas. Aguarde ${min} minuto${min > 1 ? 's' : ''}.` }; }
   const u = db.prepare('SELECT * FROM users WHERE username=?').get(String(username || '').trim());
   if (!u || !u.ativo || !verifyPassword(password, u.pass_salt, u.pass_hash)) {
-    const n = (a?.n || 0) + 1;
-    attempts.set(key, { n, until: n >= 5 ? Date.now() + 60000 : 0 });
-    if (n >= 5) attempts.set(key, { n: 0, until: Date.now() + 60000 });
+    const n = (a?.n || 0) + 1; const nivel = a?.nivel || 0;
+    if (n >= 5) attempts.set(key, { n: 0, nivel: nivel + 1, until: Date.now() + Math.min(15, 2 ** nivel) * 60000 });
+    else attempts.set(key, { n, nivel, until: 0 });
     return { erro: 'Usuário ou senha incorretos' };
   }
   attempts.delete(key);

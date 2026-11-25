@@ -44,6 +44,7 @@ module.exports = (r, ctx) => {
     const o = getOS(req, +req.params.id);
     let itens = db.prepare('SELECT i.*, ci.numero cilindro FROM os_itens i LEFT JOIN cilindros ci ON ci.id=i.cilindro_id WHERE i.os_id=? ORDER BY i.id').all(o.id);
     if (!can(req.user.role, 'custo.ver')) itens = itens.map(({ custo, ...x }) => x);
+    if (!can(req.user.role, 'os.valores')) { itens = itens.map(({ unitario, total, ...x }) => x); delete o.total; o.sem_valores = true; } // o técnico vê o que fazer, não os preços
     o.itens = itens;
     o.checklist = o.checklist ? JSON.parse(o.checklist) : null;
     o.fotos = db.prepare('SELECT id, legenda, created_at FROM os_fotos WHERE os_id=? ORDER BY id').all(o.id);
@@ -58,6 +59,12 @@ module.exports = (r, ctx) => {
     db.prepare('UPDATE os SET total=? WHERE id=?').run(r2(rows.reduce((s, x) => s + x.total, 0)), osId);
   };
 
+  const ATEND = ['atend_endereco', 'atend_bairro', 'atend_complemento', 'atend_referencia', 'atend_contato', 'atend_telefone', 'instrucoes'];
+  const PRIOR = ['normal', 'urgente'];
+  const salvarAtend = (id, b, atual = null) => {
+    for (const c of ATEND) if (b[c] !== undefined) db.prepare('UPDATE os SET ' + c + '=? WHERE id=?').run(String(b[c] || '').trim().slice(0, 600) || null, id);
+    if (b.prioridade !== undefined) db.prepare('UPDATE os SET prioridade=? WHERE id=?').run(PRIOR.includes(b.prioridade) ? b.prioridade : (atual?.prioridade || 'normal'), id);
+  };
   ctx.criarOS = (user, b) => {
     if (!db.prepare('SELECT 1 FROM clientes WHERE id=?').get(b.cliente_id)) throw bad('Selecione o cliente da OS');
     if (b.tecnico_id && !db.prepare("SELECT 1 FROM users WHERE id=? AND ativo=1").get(b.tecnico_id)) throw bad('Técnico inválido');
@@ -68,6 +75,7 @@ module.exports = (r, ctx) => {
       .run(numero, b.cliente_id, b.equipamento_id || null, b.tecnico_id || null, tipo, b.agendada_para ? 'agendada' : 'aberta', b.agendada_para || null,
         b.descricao || null, JSON.stringify(b.checklist || (CHECKLISTS[tipo] || []).map(t => ({ t, ok: false }))), b.orcamento_id || null, user.id).lastInsertRowid;
     salvarItens(id, rows);
+    salvarAtend(id, b);
     S.log(user, 'os.criar', `OS ${numero}`);
     return { id, numero };
   };
@@ -78,12 +86,15 @@ module.exports = (r, ctx) => {
     if (FECHADAS.includes(o.status)) throw bad('Esta OS já foi concluída/cancelada e não pode ser alterada');
     if (!podeEditar(req.user, o)) throw bad('Sem permissão para alterar esta OS', 403);
     const b = req.body; const gerir = can(req.user.role, 'os.gerir');
-    const rows = Array.isArray(b.itens) ? S.normItens(b.itens) : null;
+    // quem não vê valores (técnico) manda os itens sem preço: reaproveita o preço já gravado do mesmo item
+    const atuais = db.prepare('SELECT produto_id, descricao, unitario FROM os_itens WHERE os_id=?').all(o.id);
+    const rows = Array.isArray(b.itens) ? S.normItens(b.itens.map(i => (i.unitario !== undefined && i.unitario !== null) ? i : { ...i, unitario: atuais.find(a => a.produto_id === (i.produto_id || null) && a.descricao === i.descricao)?.unitario })) : null;
     if (gerir) {
       db.prepare('UPDATE os SET cliente_id=?, equipamento_id=?, tecnico_id=?, tipo=?, agendada_para=?, descricao=? WHERE id=?')
         .run(b.cliente_id ?? o.cliente_id, b.equipamento_id === undefined ? o.equipamento_id : (b.equipamento_id || null), b.tecnico_id === undefined ? o.tecnico_id : (b.tecnico_id || null),
           TIPOS.includes(b.tipo) ? b.tipo : o.tipo, b.agendada_para === undefined ? o.agendada_para : (b.agendada_para || null), b.descricao ?? o.descricao, o.id);
       if (b.agendada_para && o.status === 'aberta') db.prepare("UPDATE os SET status='agendada' WHERE id=?").run(o.id);
+      salvarAtend(o.id, b, o);
     }
     if (b.checklist) db.prepare('UPDATE os SET checklist=? WHERE id=?').run(JSON.stringify(b.checklist), o.id);
     if (b.laudo !== undefined) db.prepare('UPDATE os SET laudo=? WHERE id=?').run(b.laudo, o.id);
@@ -137,6 +148,7 @@ module.exports = (r, ctx) => {
   r.post('/os/:id/fotos', need('os.ver'), wrap(req => {
     const o = getOS(req, +req.params.id);
     if (!podeEditar(req.user, o) && !can(req.user.role, 'os.gerir')) throw bad('Sem permissão', 403);
+    if (FECHADAS.includes(o.status)) throw bad('Esta OS já foi concluída/cancelada: não aceita novas fotos');
     const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(String(req.body.data || ''));
     if (!m) throw bad('Imagem inválida');
     const buf = Buffer.from(m[2], 'base64');
@@ -153,6 +165,7 @@ module.exports = (r, ctx) => {
   r.delete('/os/:id/fotos/:fid', need('os.ver'), wrap(req => {
     const o = getOS(req, +req.params.id);
     if (!podeEditar(req.user, o)) throw bad('Sem permissão', 403);
+    if (FECHADAS.includes(o.status)) throw bad('Esta OS já foi concluída/cancelada: as fotos não podem ser removidas');
     db.prepare('DELETE FROM os_fotos WHERE id=? AND os_id=?').run(+req.params.fid, o.id);
     return { ok: true };
   }));

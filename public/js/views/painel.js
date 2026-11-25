@@ -31,12 +31,15 @@ export default async function (root, ctx) {
     { h: 'Quando', f: o => o.agendada_para ? fdt(o.agendada_para.replace('T', ' ')) : '<span class="muted">sem data</span>' }, { h: 'Cliente', f: o => `<a href="#/os/${o.id}">${esc(o.cliente)}</a>` }, { h: 'Tipo', f: o => esc(TIPOS_OS[o.tipo]) }, { h: '', f: o => tag(STATUS_OS, o.status) }], p.os.agenda, { empty: 'Nenhuma OS em aberto.' })}</div>` : '';
   const man = manut.length ? `<div class="card"><h3>${icon('bell')} Manutenção preventiva a oferecer <small>${manut.length} cliente(s)</small></h3>${table([
     { h: 'Cliente', f: m => esc(m.cliente) }, { h: 'Equipamento', f: m => esc(`${m.marca || ''} ${m.btus ? m.btus + ' BTUs' : ''}`) }, { h: 'Último serviço', f: m => fdate(m.ultima) },
-    { h: '', f: (m, i) => m.telefone ? `<a class="btn sm g" data-wa="${i}">WhatsApp</a>` : '<span class="muted small">sem telefone</span>' }], manut.slice(0, 6))}</div>` : '';
+    { h: '', f: (m, i) => m.telefone ? `<a class="btn sm g" data-wa="${i}" title="Chamar no WhatsApp" aria-label="Chamar no WhatsApp">${icon('message-circle', 16)}</a>` : '<span class="muted small">sem telefone</span>' }], manut.slice(0, 6))}</div>` : '';
 
   const h = new Date().getHours(); const saud = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
   const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const greet = `<div class="greet"><h2>${saud}, ${esc(String(state.user.nome || '').split(' ')[0])}</h2><p>${esc(hoje.charAt(0).toUpperCase() + hoje.slice(1))} · resumo do seu negócio</p></div>`;
-  root.innerHTML = `${greet}<div class="kpis">${k.join('')}</div><div class="row">${chart}<div class="stack grow">${orc}${est}</div></div><div class="row" style="margin-top:16px"><div class="grow">${agenda}</div>${man ? `<div class="grow">${man}</div>` : ''}</div>`;
+  const dataLocal = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+  const vence = p.contas?.proximas?.length ? `<div class="card"><h3>Contas vencidas e dos próximos 7 dias <small><a href="#/financeiro">abrir financeiro</a></small></h3>${table([
+    { h: 'Vence', f: c => c.vencimento < dataLocal ? `<span class="tag t-vm">venceu ${fdate(c.vencimento)}</span>` : c.vencimento === dataLocal ? '<span class="tag t-lj">hoje</span>' : fdate(c.vencimento) }, { h: 'Conta', f: c => `${esc(c.descricao)}<div class="muted small">${c.tipo === 'pagar' ? 'a pagar' : 'a receber'}</div>` }, { h: 'Valor', cls: 'r', f: c => `<b class="${c.tipo === 'pagar' ? 'dn' : 'up'}">${brl(c.valor)}</b>` }], p.contas.proximas)}</div>` : '';
+  root.innerHTML = `${greet}<div class="kpis">${k.join('')}</div><div class="row">${chart}<div class="stack grow">${orc}${est}${vence}</div></div><div class="row" style="margin-top:16px"><div class="grow">${agenda}</div>${man ? `<div class="grow">${man}</div>` : ''}</div>`;
   $$('[data-wa]', root).forEach(a => a.onclick = () => {
     const m = manut[+a.dataset.wa];
     openExternal(waLink(m.telefone, fillMsg(state.config.msg_manutencao, { cliente: m.cliente, loja: state.config.loja_nome })));

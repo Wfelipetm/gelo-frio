@@ -146,7 +146,19 @@ async function registrar(nome, okk, ms, erro) {
     relat.push({ secao: secaoAtual, nome, ok: okk, ms, erro: erro || '', acoes: acoes.slice(), arquivo, b64: r.result.data });
   } catch (e) { console.log('  (sem print: ' + e.message + ')'); }
 }
+// Modo passo a passo (npm run test:e2e:passo): antes de cada passo espera o arquivo PASSO (conteúdo = quantos passos liberar, padrão 1)
+let liberados = 0;
+async function aguardarLiberacao(nome) {
+  const f = process.env.PASSO; if (!f) return;
+  if (liberados <= 0) {
+    console.log(`  ⏸ PRÓXIMO: ${nome}`);
+    while (!fs.existsSync(f)) await sleep(150);
+    liberados = Math.max(1, parseInt(String(fs.readFileSync(f, 'utf8')).trim(), 10) || 1); fs.unlinkSync(f);
+  }
+  liberados--;
+}
 async function passo(nome, fn) {
+  await aguardarLiberacao(nome);
   const t0 = Date.now(); acoes = [];
   try { await fn(); ok++; console.log(`  \u2713 ${nome}  (${Date.now() - t0} ms)`); await registrar(nome, true, Date.now() - t0); }
   catch (e) {

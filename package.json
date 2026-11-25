@@ -27,6 +27,7 @@
     "manual": "node scripts/manual-prints.js && node scripts/manual-build.js && node scripts/manual-pdf.js",
     "dist:dir": "electron-builder --dir",
     "test:e2e": "node tests/e2e.js",
+    "test:e2e:passo": "node tests/e2e-passo.js",
     "test:e2e:live": "node tests/e2e-live.js",
     "test:e2e:prints": "node tests/e2e-prints.js",
     "seed": "node scripts/seed.js",

@@ -312,6 +312,34 @@ const test = async (nome, fn) => { try { await fn(); passed++; console.log('  鉁
     assert.strictEqual(ok(await new Client().post('/api/login', { username: 'joao', password: 'reset1234' })).user.must_change, true);
   });
 
+  await test('manter conectado: volta sem senha, s贸 guarda hash, some ao sair e ao desativar', async () => {
+    const raw = (m, u, ck, body) => fetch(BASE + u, { method: m, headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'friogest', Cookie: ck || '' }, body: body && JSON.stringify(body) });
+    const ck = r => r.headers.getSetCookie().map(c => c.split(';')[0]);
+    // sem marcar: s贸 o cookie de sess茫o
+    assert.strictEqual(ck(await raw('POST', '/api/login', '', { username: 'joao', password: 'reset1234' })).length, 1);
+    // marcando: vem tamb茅m o cookie rm (30 dias, httpOnly)
+    const l = await raw('POST', '/api/login', '', { username: 'joao', password: 'reset1234', lembrar: true });
+    const cookies = ck(l); assert.strictEqual(cookies.length, 2);
+    assert.ok(l.headers.getSetCookie().some(c => /^rm=.*HttpOnly.*Max-Age=2592000/i.test(c)));
+    const rm = cookies.find(c => c.startsWith('rm='));
+    // o banco guarda s贸 o hash do token, nunca o token nem a senha
+    const linhas = srv.db.prepare('SELECT * FROM remember_tokens').all();
+    assert.ok(linhas.length >= 1 && linhas.every(x => !rm.includes(x.hash) && x.hash.length === 64));
+    // "programa reiniciado": s贸 o cookie rm entra de novo, sem senha
+    const me = await raw('GET', '/api/me', rm); assert.strictEqual(me.status, 200);
+    assert.ok(ck(me).some(c => c.startsWith('sid=')), 'deveria criar uma sess茫o nova');
+    // sair apaga o token
+    await raw('POST', '/api/logout', rm);
+    assert.strictEqual((await raw('GET', '/api/me', rm)).status, 401);
+    // desativar o usu谩rio derruba os tokens
+    const l2 = await raw('POST', '/api/login', '', { username: 'joao', password: 'reset1234', lembrar: true });
+    const rm2 = ck(l2).find(c => c.startsWith('rm='));
+    const id = ok(await master.get('/api/usuarios')).find(u => u.username === 'joao').id;
+    ok(await master.put(`/api/usuarios/${id}`, { ativo: false }));
+    assert.strictEqual((await raw('GET', '/api/me', rm2)).status, 401);
+    ok(await master.put(`/api/usuarios/${id}`, { ativo: true }));
+  });
+
   console.log(`\n${passed} testes passaram.`);
 })().catch(e => { console.error('\nFALHOU:', e.message); process.exitCode = 1; }).finally(() => setTimeout(() => process.exit(process.exitCode || 0), 100));
 

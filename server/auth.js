@@ -7,6 +7,22 @@ const sessions = new Map(); // token -> { uid, exp }
 const TTL = 12 * 3600 * 1000;
 const attempts = new Map(); // username -> { n, until }
 
+// "Manter conectado": token de 30 dias num cookie httpOnly (`rm`). No banco fica só o HASH do token (nunca a senha).
+const REMEMBER_MS = 30 * 24 * 3600 * 1000;
+let DB = null;
+const sha = t => crypto.createHash('sha256').update(String(t)).digest('hex');
+function prepararRemember(db) {
+  DB = db;
+  db.exec('CREATE TABLE IF NOT EXISTS remember_tokens (hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, exp INTEGER NOT NULL)');
+  db.prepare('DELETE FROM remember_tokens WHERE exp<?').run(Date.now());
+}
+function criarRemember(uid) {
+  const t = crypto.randomBytes(32).toString('hex');
+  DB.prepare('INSERT INTO remember_tokens(hash,user_id,exp) VALUES(?,?,?)').run(sha(t), uid, Date.now() + REMEMBER_MS);
+  return t;
+}
+const cookieRm = (token, maxAge = REMEMBER_MS / 1000) => `rm=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+
 function parseCookies(req) {
   const out = {};
   for (const part of String(req.headers.cookie || '').split(';')) {
@@ -17,12 +33,26 @@ function parseCookies(req) {
 }
 
 function sessionMiddleware(db) {
+  prepararRemember(db);
+  const USER = 'SELECT id,username,nome,role,ativo,must_change,comissao_pct FROM users WHERE id=?';
   return (req, res, next) => {
-    const sid = parseCookies(req).sid;
+    const ck = parseCookies(req);
+    const sid = ck.sid;
     const s = sid && sessions.get(sid);
     if (s && s.exp > Date.now()) {
-      const u = db.prepare('SELECT id,username,nome,role,ativo,must_change,comissao_pct FROM users WHERE id=?').get(s.uid);
+      const u = db.prepare(USER).get(s.uid);
       if (u && u.ativo) { s.exp = Date.now() + TTL; req.user = u; req.sid = sid; }
+    }
+    // sem sessão (programa foi fechado/reiniciado) mas com "manter conectado": entra de novo sem pedir a senha
+    if (!req.user && ck.rm) {
+      const r = db.prepare('SELECT user_id FROM remember_tokens WHERE hash=? AND exp>?').get(sha(ck.rm), Date.now());
+      const u = r && db.prepare(USER).get(r.user_id);
+      if (u && u.ativo) {
+        const token = crypto.randomBytes(32).toString('hex');
+        sessions.set(token, { uid: u.id, exp: Date.now() + TTL });
+        res.append('Set-Cookie', cookie(token));
+        req.user = u; req.sid = token;
+      }
     }
     next();
   };
@@ -37,7 +67,7 @@ function need(perm, { allowMust = false } = {}) {
   };
 }
 
-function login(db, username, password) {
+function login(db, username, password, lembrar = false) {
   const key = String(username || '').toLowerCase();
   const a = attempts.get(key);
   if (a && a.until > Date.now()) return { erro: 'Muitas tentativas. Aguarde 1 minuto.' };
@@ -51,15 +81,15 @@ function login(db, username, password) {
   attempts.delete(key);
   const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, { uid: u.id, exp: Date.now() + TTL });
-  return { token, user: u };
+  return { token, user: u, remember: lembrar ? criarRemember(u.id) : null };
 }
 
-function dropUserSessions(uid) { for (const [t, s] of sessions) if (s.uid === uid) sessions.delete(t); }
-function logout(sid) { sessions.delete(sid); }
+function dropUserSessions(uid) { for (const [t, s] of sessions) if (s.uid === uid) sessions.delete(t); if (DB) DB.prepare('DELETE FROM remember_tokens WHERE user_id=?').run(uid); }
+function logout(sid, rm) { sessions.delete(sid); if (DB && rm) DB.prepare('DELETE FROM remember_tokens WHERE hash=?').run(sha(rm)); }
 const cookie = (token, maxAge = TTL / 1000) => `sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 
 function publicUser(u) {
   return { id: u.id, username: u.username, nome: u.nome, role: u.role, must_change: !!u.must_change, perms: ROLE_PERMS[u.role] || [] };
 }
 
-module.exports = { sessionMiddleware, need, login, logout, dropUserSessions, cookie, publicUser };
+module.exports = { sessionMiddleware, need, login, logout, dropUserSessions, cookie, cookieRm, parseCookies, publicUser };

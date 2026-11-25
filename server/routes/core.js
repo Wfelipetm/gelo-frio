@@ -20,15 +20,15 @@ module.exports = (r, ctx) => {
 
   // ---------- sessão ----------
   r.post('/login', wrap((req, res) => {
-    const out = A.login(db, req.body.username, req.body.password);
+    const out = A.login(db, req.body.username, req.body.password, req.body.lembrar === true);
     if (out.erro) throw bad(out.erro, 401);
-    res.setHeader('Set-Cookie', A.cookie(out.token));
+    res.setHeader('Set-Cookie', out.remember ? [A.cookie(out.token), A.cookieRm(out.remember)] : A.cookie(out.token));
     S.log(out.user, 'login', null);
     return { user: A.publicUser(out.user) };
   }));
   r.post('/logout', wrap((req, res) => {
-    if (req.sid) A.logout(req.sid);
-    res.setHeader('Set-Cookie', A.cookie('', 0));
+    if (req.sid) A.logout(req.sid, A.parseCookies(req).rm);
+    res.setHeader('Set-Cookie', [A.cookie('', 0), A.cookieRm('', 0)]);
     return { ok: true };
   }));
   r.get('/me', need(null, { allowMust: true }), wrap(req => ({ user: A.publicUser(req.user), config: publicConfig() })));

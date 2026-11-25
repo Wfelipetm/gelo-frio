@@ -45,6 +45,9 @@ async function boot() {
   }
 }
 
+const lerCookie = n => { const x = document.cookie.split('; ').find(c => c.startsWith(n + '=')); return x ? decodeURIComponent(x.slice(n.length + 1)) : ''; };
+const gravarCookie = (n, v) => { document.cookie = `${n}=${encodeURIComponent(v)}; Max-Age=31536000; Path=/; SameSite=Lax`; };
+
 async function renderLogin(msg = '', { auto = false } = {}) {
   state.user = null;
   let info = {}; try { info = await api('/info'); } catch { /* servidor fora */ }
@@ -60,8 +63,9 @@ async function renderLogin(msg = '', { auto = false } = {}) {
       <div class="foot">Versão ${esc(info.versao || '')}</div></section>
     <div class="side-form"><div class="box">${logo.replace('class="logo"', 'class="logo mini"')}
     <h1>Entrar</h1><p class="sub">Acesse com seu usuário e senha.</p>
-    <form id="lf"><label class="f">Usuário<input name="username" autocomplete="username" autofocus></label>
-    <label class="f">Senha<input name="password" type="password" autocomplete="current-password"></label>
+    <form id="lf"><label class="f">Usuário<input name="username" autocomplete="username" value="${esc(lerCookie('fg_user'))}" ${lerCookie('fg_user') ? '' : 'autofocus'}></label>
+    <label class="f">Senha<input name="password" type="password" autocomplete="current-password" ${lerCookie('fg_user') ? 'autofocus' : ''}></label>
+    <label class="f chk"><span><input type="checkbox" name="lembrar" ${lerCookie('fg_manter') !== '0' ? 'checked' : ''}> Manter conectado neste computador (não guarda a senha)</span></label>
     <div class="alert err ${msg ? '' : 'hide'}" id="lerr">${esc(msg)}</div>
     <button class="btn p lg">Entrar</button>
     ${info.primeiro_acesso && !info.demo ? `<div class="alert info small">Primeiro acesso? Entre com o usuário <b>master</b> e a senha <b>master123</b>. O sistema vai pedir para você criar uma senha nova.</div>` : ''}
@@ -70,7 +74,11 @@ async function renderLogin(msg = '', { auto = false } = {}) {
   $('#lf').onsubmit = async e => {
     e.preventDefault();
     const b = getForm(e.target);
-    try { await api('/login', { method: 'POST', body: b }); boot(); }
+    try {
+      await api('/login', { method: 'POST', body: { ...b, lembrar: !!b.lembrar } });
+      gravarCookie('fg_user', String(b.username || '').trim()); gravarCookie('fg_manter', b.lembrar ? '1' : '0'); // lembra o usuário (nunca a senha)
+      boot();
+    }
     catch (err) { const el = $('#lerr'); el.textContent = err.message; el.classList.remove('hide'); $('[name=password]').select(); }
   };
   if ($('#demo-go')) $('#demo-go').onclick = async () => { try { await api('/login', { method: 'POST', body: { username: 'master', password: 'demo-friogest' } }); boot(); } catch (err) { fail(err); } };
